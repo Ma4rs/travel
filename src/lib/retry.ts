@@ -1,6 +1,6 @@
 export async function retryWithBackoff<T>(
   fn: () => Promise<T>,
-  maxRetries: number = 3,
+  maxRetries: number = 2,
   baseDelayMs: number = 2000
 ): Promise<T> {
   let lastError: Error | undefined;
@@ -12,16 +12,9 @@ export async function retryWithBackoff<T>(
       lastError = err instanceof Error ? err : new Error(String(err));
 
       const msg = lastError.message;
-      const isRetryable =
-        msg.includes("429") ||
-        msg.includes("500") ||
-        msg.includes("502") ||
-        msg.includes("503") ||
-        msg.includes("504") ||
-        msg.includes("rate") ||
-        msg.includes("timeout");
+      const isRateLimit = msg.includes("429") || msg.includes("rate");
 
-      if (!isRetryable || attempt === maxRetries) throw lastError;
+      if (!isRateLimit || attempt === maxRetries) throw lastError;
 
       const delay = baseDelayMs * Math.pow(2, attempt);
       await new Promise((r) => setTimeout(r, delay));
@@ -38,7 +31,10 @@ export async function fetchWithRetry(
 ): Promise<Response> {
   return retryWithBackoff(async () => {
     const res = await fetch(url, options);
-    if (res.status === 429 || res.status >= 500) {
+    if (res.status === 429) {
+      throw new Error(`HTTP 429: Too Many Requests`);
+    }
+    if (res.status >= 500) {
       throw new Error(`HTTP ${res.status}: ${res.statusText}`);
     }
     return res;
