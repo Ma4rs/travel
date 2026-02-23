@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { Quest, QuestCategory } from "@/types";
 import type { POI } from "./overpass";
 
-const GEMINI_TIMEOUT_MS = 20000;
+const GEMINI_TIMEOUT_MS = 45000;
 
 function getGenAI() {
   const key = process.env.GEMINI_API_KEY;
