@@ -10,45 +10,60 @@ export interface POI {
 }
 
 const POI_TYPES = [
-  `node["tourism"~"viewpoint|museum|castle|artwork|attraction"]`,
-  `node["amenity"~"restaurant|cafe|pub"]["cuisine"]`,
-  `node["natural"~"peak|waterfall|spring|cave_entrance|beach"]`,
-  `node["historic"~"castle|monument|memorial|ruins|archaeological_site"]`,
-  `node["amenity"~"theatre|arts_centre|library"]["name"]`,
+  `nwr["tourism"~"viewpoint|museum|castle|artwork|attraction"]`,
+  `nwr["amenity"~"restaurant|cafe|pub"]["cuisine"]`,
+  `nwr["natural"~"peak|waterfall|spring|cave_entrance|beach"]`,
+  `nwr["historic"~"castle|monument|memorial|ruins|archaeological_site"]`,
+  `nwr["amenity"~"theatre|arts_centre|library"]["name"]`,
 ];
-
-const MAX_SAMPLE_POINTS = 3;
 
 export async function findPOIsNearPoint(
   lat: number,
   lng: number,
   radiusMeters: number = 10000
 ): Promise<POI[]> {
-  return findPOIsAlongRoute([[lat, lng]], radiusMeters);
+  const deg = radiusMeters / 111000;
+  return findPOIsInBbox(lat - deg, lng - deg, lat + deg, lng + deg);
 }
 
 export async function findPOIsAlongRoute(
   samplePoints: [number, number][],
-  radiusMeters: number = 8000
+  _radiusMeters: number = 10000
 ): Promise<POI[]> {
   if (samplePoints.length === 0) return [];
 
-  // Limit sample points to keep the query fast
-  const points = evenlyPickPoints(samplePoints, MAX_SAMPLE_POINTS);
-
-  const statements: string[] = [];
-  for (const type of POI_TYPES) {
-    for (const [lat, lng] of points) {
-      statements.push(`${type}(around:${radiusMeters},${lat},${lng});`);
-    }
+  // Compute bounding box of the route with padding
+  let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+  for (const [lat, lng] of samplePoints) {
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+    if (lng < minLng) minLng = lng;
+    if (lng > maxLng) maxLng = lng;
   }
 
+  // Add ~10km padding (roughly 0.09 degrees)
+  const pad = 0.09;
+  return findPOIsInBbox(minLat - pad, minLng - pad, maxLat + pad, maxLng + pad);
+}
+
+async function findPOIsInBbox(
+  south: number,
+  west: number,
+  north: number,
+  east: number
+): Promise<POI[]> {
+  const bbox = `${south},${west},${north},${east}`;
+
+  const statements = POI_TYPES.map(
+    (type) => `${type}(${bbox});`
+  ).join("\n      ");
+
   const overpassQuery = `
-    [out:json][timeout:25];
+    [out:json][timeout:20];
     (
-      ${statements.join("\n      ")}
+      ${statements}
     );
-    out body 30;
+    out center 50;
   `;
 
   const res = await fetchWithRetry(
@@ -77,32 +92,20 @@ export async function findPOIsAlongRoute(
     .map(
       (el: {
         id: number;
-        lat: number;
-        lon: number;
+        lat?: number;
+        lon?: number;
+        center?: { lat: number; lon: number };
         tags: Record<string, string>;
       }) => ({
         id: el.id,
-        lat: el.lat,
-        lng: el.lon,
+        lat: el.lat ?? el.center?.lat ?? 0,
+        lng: el.lon ?? el.center?.lon ?? 0,
         name: el.tags.name,
         type: detectPOIType(el.tags),
         tags: el.tags,
       })
-    );
-}
-
-function evenlyPickPoints(
-  points: [number, number][],
-  max: number
-): [number, number][] {
-  if (points.length <= max) return points;
-  const result: [number, number][] = [points[0]];
-  const step = (points.length - 1) / (max - 1);
-  for (let i = 1; i < max - 1; i++) {
-    result.push(points[Math.round(step * i)]);
-  }
-  result.push(points[points.length - 1]);
-  return result;
+    )
+    .filter((poi: POI) => poi.lat !== 0 && poi.lng !== 0);
 }
 
 function detectPOIType(tags: Record<string, string>): string {
