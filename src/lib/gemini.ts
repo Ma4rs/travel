@@ -2,10 +2,21 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { Quest, QuestCategory } from "@/types";
 import type { POI } from "./overpass";
 
+const GEMINI_TIMEOUT_MS = 20000;
+
 function getGenAI() {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not set in environment");
   return new GoogleGenerativeAI(key);
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Gemini request timed out")), ms)
+    ),
+  ]);
 }
 
 export async function generateQuests(
@@ -47,7 +58,13 @@ For each quest, return a JSON array with objects containing:
 
 Return ONLY a valid JSON array, no markdown, no explanation. Generate 5-15 quests from the best POIs.`;
 
-  const result = await model.generateContent(prompt);
+  let result;
+  try {
+    result = await withTimeout(model.generateContent(prompt), GEMINI_TIMEOUT_MS);
+  } catch {
+    console.error("Gemini quest generation timed out or failed");
+    return [];
+  }
   const text = result.response.text().trim();
   const jsonStr = text.replace(/^```json?\s*/i, "").replace(/```\s*$/i, "");
 
@@ -126,7 +143,13 @@ Suggest 3 different trip ideas. For each, return a JSON array with:
 
 Return ONLY a valid JSON array, no markdown.`;
 
-  const result = await model.generateContent(prompt);
+  let result;
+  try {
+    result = await withTimeout(model.generateContent(prompt), GEMINI_TIMEOUT_MS);
+  } catch {
+    console.error("Gemini trip suggestion timed out or failed");
+    return [];
+  }
   const text = result.response.text().trim();
   const jsonStr = text.replace(/^```json?\s*/i, "").replace(/```\s*$/i, "");
 

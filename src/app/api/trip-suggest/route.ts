@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateTripSuggestions } from "@/lib/gemini";
 import type { QuestCategory } from "@/types";
 
+export const maxDuration = 60;
+
 const VALID_CATEGORIES: QuestCategory[] = [
   "hidden_gem", "scenic", "food", "history",
   "photo_spot", "weird", "nature", "culture",

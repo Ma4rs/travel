@@ -62,7 +62,7 @@ export async function generateQuestsForRoute(
 }> {
   const route = await getRoute(originLat, originLng, destLat, destLng);
 
-  const samplePoints = sampleRoutePoints(route.geometry, 15);
+  const samplePoints = sampleRoutePoints(route.geometry, 30);
 
   const pois = await findPOIsAlongRoute(samplePoints, 10000);
 

@@ -36,7 +36,7 @@ export async function findPOIsNearPoint(
     (
       ${queries}
     );
-    out center 20;
+    out center 30;
   `;
 
   const res = await fetchWithRetry(
@@ -82,7 +82,7 @@ export async function findPOIsAlongRoute(
   const allPois: POI[] = [];
   const seenIds = new Set<number>();
 
-  const batchSize = 3;
+  const batchSize = 5;
   for (let i = 0; i < samplePoints.length; i += batchSize) {
     const batch = samplePoints.slice(i, i + batchSize);
     const results = await Promise.all(
@@ -99,7 +99,7 @@ export async function findPOIsAlongRoute(
     }
 
     if (i + batchSize < samplePoints.length) {
-      await new Promise((r) => setTimeout(r, 1000));
+      await new Promise((r) => setTimeout(r, 500));
     }
   }
 
