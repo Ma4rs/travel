@@ -1,14 +1,17 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import AuthGuard from "@/components/AuthGuard";
 import CloudSync from "@/components/CloudSync";
+
+export const viewport: Viewport = {
+  themeColor: "#8B5CF6",
+};
 
 export const metadata: Metadata = {
   title: "TravelGuide — Side Quests for Every Trip",
   description:
     "Discover hidden gems, scenic detours, and local favorites along your route. Your AI-powered road trip companion.",
   manifest: "/manifest.json",
-  themeColor: "#8B5CF6",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
