@@ -126,6 +126,7 @@ export const useTripStore = create<TripState>()(
           isLoadingRoute: false,
           isLoadingQuests: false,
           savedTrips: [],
+          hasSynced: false,
         }),
     }),
     {

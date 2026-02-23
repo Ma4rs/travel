@@ -30,8 +30,8 @@ export async function generateQuests(
   const genAI = getGenAI();
   const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-  const poiList = pois
-    .slice(0, 30)
+  const slicedPois = pois.slice(0, 30);
+  const poiList = slicedPois
     .map(
       (p, i) =>
         `${i + 1}. "${p.name}" (type: ${p.type}, lat: ${p.lat}, lng: ${p.lng}${p.tags.cuisine ? `, cuisine: ${p.tags.cuisine}` : ""}${p.tags.description ? `, info: ${p.tags.description}` : ""})`
@@ -65,6 +65,12 @@ Return ONLY a valid JSON array, no markdown, no explanation. Generate 5-15 quest
     console.error("Gemini quest generation timed out or failed");
     return [];
   }
+
+  if (!result?.response) {
+    console.error("Gemini returned no response");
+    return [];
+  }
+
   const text = result.response.text().trim();
   const jsonStr = text.replace(/^```json?\s*/i, "").replace(/```\s*$/i, "");
 
@@ -87,9 +93,9 @@ Return ONLY a valid JSON array, no markdown, no explanation. Generate 5-15 quest
   if (!Array.isArray(questData)) return [];
 
   return questData
-    .filter((q) => q.poiIndex >= 1 && q.poiIndex <= pois.length)
+    .filter((q) => q.poiIndex >= 1 && q.poiIndex <= slicedPois.length)
     .map((q) => {
-      const poi = pois[q.poiIndex - 1];
+      const poi = slicedPois[q.poiIndex - 1];
       return {
         id: `quest-${poi.id || Math.random().toString(36).slice(2)}`,
         title: q.title,
@@ -150,6 +156,12 @@ Return ONLY a valid JSON array, no markdown.`;
     console.error("Gemini trip suggestion timed out or failed");
     return [];
   }
+
+  if (!result?.response) {
+    console.error("Gemini returned no response for trip suggestion");
+    return [];
+  }
+
   const text = result.response.text().trim();
   const jsonStr = text.replace(/^```json?\s*/i, "").replace(/```\s*$/i, "");
 

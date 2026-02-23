@@ -43,6 +43,12 @@ export default function LocationSearch({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
   function handleChange(val: string) {
     setQuery(val);
     setSearchError(null);

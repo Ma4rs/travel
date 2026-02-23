@@ -27,6 +27,7 @@ export default function PlanPage() {
   const cooldownInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startCooldown = useCallback(() => {
+    if (cooldownInterval.current) clearInterval(cooldownInterval.current);
     setCooldown(15);
     cooldownInterval.current = setInterval(() => {
       setCooldown((prev) => {

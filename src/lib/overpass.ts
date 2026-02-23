@@ -31,19 +31,18 @@ export async function findPOIsAlongRoute(
 ): Promise<POI[]> {
   if (samplePoints.length === 0) return [];
 
-  // Build a single Overpass query that covers ALL sample points at once
-  const aroundClauses = samplePoints
-    .map(([lat, lng]) => `(around:${radiusMeters},${lat},${lng})`)
-    .join("");
-
-  const queries = POI_TYPES.map(
-    (type) => `${type}${aroundClauses};`
-  ).join("\n");
+  // Each type+point combination is a separate union member (OR semantics)
+  const statements: string[] = [];
+  for (const type of POI_TYPES) {
+    for (const [lat, lng] of samplePoints) {
+      statements.push(`${type}(around:${radiusMeters},${lat},${lng});`);
+    }
+  }
 
   const overpassQuery = `
     [out:json][timeout:30];
     (
-      ${queries}
+      ${statements.join("\n      ")}
     );
     out center 40;
   `;

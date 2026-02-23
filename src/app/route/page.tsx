@@ -85,6 +85,7 @@ export default function RoutePage() {
   }, [searchParams, setOrigin, setDestination]);
 
   const startCooldown = useCallback(() => {
+    if (cooldownInterval.current) clearInterval(cooldownInterval.current);
     setCooldown(COOLDOWN_SECONDS);
     cooldownInterval.current = setInterval(() => {
       setCooldown((prev) => {
