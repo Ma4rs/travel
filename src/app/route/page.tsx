@@ -12,12 +12,6 @@ import UserMenu from "@/components/UserMenu";
 import { useTripStore } from "@/stores/trip-store";
 import type { Quest } from "@/types";
 
-const LOADING_STEPS = [
-  "Calculating route...",
-  "Scanning for interesting places...",
-  "Generating quests with AI...",
-];
-const STEP_DELAYS = [2000, 4000];
 const COOLDOWN_SECONDS = 15;
 
 export default function RoutePage() {
@@ -44,13 +38,11 @@ export default function RoutePage() {
   } = useTripStore();
 
   const [error, setError] = useState<string | null>(null);
-  const [loadingStep, setLoadingStep] = useState(0);
   const [cooldown, setCooldown] = useState(0);
   const [mobileTab, setMobileTab] = useState<"list" | "map">("list");
   const [hasSearched, setHasSearched] = useState(false);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
-  const stepTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const cooldownInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const originRef = useRef(origin);
@@ -102,7 +94,6 @@ export default function RoutePage() {
 
   useEffect(() => {
     return () => {
-      stepTimers.current.forEach(clearTimeout);
       if (cooldownInterval.current) clearInterval(cooldownInterval.current);
     };
   }, []);
@@ -112,12 +103,6 @@ export default function RoutePage() {
 
     setError(null);
     setIsLoadingQuests(true);
-    setLoadingStep(0);
-
-    stepTimers.current.forEach(clearTimeout);
-    stepTimers.current = STEP_DELAYS.map((delay, i) =>
-      setTimeout(() => setLoadingStep(i + 1), delay)
-    );
 
     try {
       const res = await fetch("/api/quests", {
@@ -147,7 +132,6 @@ export default function RoutePage() {
       setError("Something went wrong. Please try again.");
     } finally {
       setIsLoadingQuests(false);
-      stepTimers.current.forEach(clearTimeout);
     }
   }
 
@@ -208,7 +192,7 @@ export default function RoutePage() {
   const buttonLabel = isLoadingQuests ? (
     <span className="flex items-center justify-center gap-2">
       <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-      {LOADING_STEPS[loadingStep] || LOADING_STEPS[LOADING_STEPS.length - 1]}
+      Searching...
     </span>
   ) : cooldown > 0 ? (
     `Wait ${cooldown}s...`
