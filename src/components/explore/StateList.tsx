@@ -216,6 +216,7 @@ function QuestRow({
   onClick: () => void;
 }) {
   const cat = QUEST_CATEGORIES[quest.category];
+  const [imgError, setImgError] = useState(false);
 
   return (
     <div
@@ -240,13 +241,14 @@ function QuestRow({
         {isCompleted && "✓"}
       </button>
 
-      {isCompleted && photoUrl ? (
+      {isCompleted && photoUrl && !imgError ? (
         <Image
           src={photoUrl}
           alt=""
           width={32}
           height={32}
           className="h-8 w-8 shrink-0 rounded-md object-cover"
+          onError={() => setImgError(true)}
         />
       ) : (
         <span className="text-lg" title={cat.label}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import type { Quest } from "@/types";
 import { QUEST_CATEGORIES } from "@/types";
@@ -23,8 +23,24 @@ export default function QuestDetail({
 }: QuestDetailProps) {
   const cat = QUEST_CATEGORIES[quest.category];
   const [showUpload, setShowUpload] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const isCompleted = quest.completed || !!photoUrl;
   const displayPhotoUrl = photoUrl || quest.photoUrl;
+
+  useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    dialogRef.current?.focus();
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      prev?.focus();
+    };
+  }, [onClose]);
 
   if (showUpload && onComplete) {
     return (
@@ -43,7 +59,9 @@ export default function QuestDetail({
 
   return (
     <div
-      className="fixed inset-0 z-[1000] flex items-end justify-center sm:items-center"
+      ref={dialogRef}
+      tabIndex={-1}
+      className="fixed inset-0 z-[1000] flex items-end justify-center sm:items-center outline-none"
       role="dialog"
       aria-modal="true"
       aria-labelledby="quest-detail-title"
@@ -59,7 +77,7 @@ export default function QuestDetail({
           ✕
         </button>
 
-        {isCompleted && displayPhotoUrl && (
+        {isCompleted && displayPhotoUrl && !imgError && (
           <div className="relative mb-4 -mx-6 -mt-6 sm:rounded-t-2xl overflow-hidden h-56">
             <Image
               src={displayPhotoUrl}
@@ -67,6 +85,7 @@ export default function QuestDetail({
               fill
               className="object-cover"
               sizes="(max-width: 640px) 100vw, 512px"
+              onError={() => setImgError(true)}
             />
           </div>
         )}

@@ -79,33 +79,14 @@ export default function AlbumPage() {
                 : null;
 
               return (
-                <button
+                <AlbumCard
                   key={entry.questId}
+                  photoUrl={entry.photoUrl}
+                  title={curated?.title ?? entry.questId}
+                  icon={cat?.icon}
+                  date={entry.completedAt}
                   onClick={() => openQuest(entry.questId)}
-                  className="group relative aspect-square overflow-hidden rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <Image
-                    src={entry.photoUrl}
-                    alt={curated?.title ?? "Quest photo"}
-                    fill
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-3">
-                    {cat && (
-                      <span className="mb-1 inline-block text-sm">
-                        {cat.icon}
-                      </span>
-                    )}
-                    <p className="text-sm font-medium text-white leading-tight">
-                      {curated?.title ?? entry.questId}
-                    </p>
-                    <p className="mt-0.5 text-xs text-white/60">
-                      {new Date(entry.completedAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                </button>
+                />
               );
             })}
           </div>
@@ -126,5 +107,53 @@ export default function AlbumPage() {
         />
       )}
     </div>
+  );
+}
+
+function AlbumCard({
+  photoUrl,
+  title,
+  icon,
+  date,
+  onClick,
+}: {
+  photoUrl: string;
+  title: string;
+  icon?: string;
+  date: string;
+  onClick: () => void;
+}) {
+  const [imgError, setImgError] = useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      className="group relative aspect-square overflow-hidden rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
+    >
+      {imgError ? (
+        <div className="flex h-full w-full items-center justify-center bg-card text-4xl">
+          📸
+        </div>
+      ) : (
+        <Image
+          src={photoUrl}
+          alt={title}
+          fill
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          className="object-cover transition-transform duration-300 group-hover:scale-105"
+          onError={() => setImgError(true)}
+        />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 p-3">
+        {icon && (
+          <span className="mb-1 inline-block text-sm">{icon}</span>
+        )}
+        <p className="text-sm font-medium text-white leading-tight">{title}</p>
+        <p className="mt-0.5 text-xs text-white/60">
+          {new Date(date).toLocaleDateString()}
+        </p>
+      </div>
+    </button>
   );
 }

@@ -27,11 +27,16 @@ export default function MapView({
   const containerRef = useRef<HTMLDivElement>(null);
   const routeLayerRef = useRef<L.Polyline | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
+  const initialCenter = useRef(center);
+  const initialZoom = useRef(zoom);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    mapRef.current = L.map(containerRef.current).setView(center, zoom);
+    mapRef.current = L.map(containerRef.current).setView(
+      initialCenter.current,
+      initialZoom.current
+    );
 
     const isDark = document.documentElement.classList.contains("dark") ||
       (!document.documentElement.classList.contains("light") &&
@@ -51,7 +56,6 @@ export default function MapView({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

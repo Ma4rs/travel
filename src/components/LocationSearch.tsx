@@ -22,6 +22,7 @@ export default function LocationSearch({
   const [results, setResults] = useState<RoutePoint[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const debounceRef = useRef<NodeJS.Timeout>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -44,6 +45,7 @@ export default function LocationSearch({
 
   function handleChange(val: string) {
     setQuery(val);
+    setSearchError(null);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -62,19 +64,27 @@ export default function LocationSearch({
         if (!res.ok) {
           setResults([]);
           setIsOpen(false);
+          setSearchError("Search failed. Please try again.");
           return;
         }
         const data = await res.json();
         if (!Array.isArray(data)) {
           setResults([]);
           setIsOpen(false);
+          setSearchError("No locations found.");
           return;
         }
         setResults(data);
-        setIsOpen(data.length > 0);
+        if (data.length > 0) {
+          setIsOpen(true);
+        } else {
+          setIsOpen(false);
+          setSearchError("No locations found. Try a different search.");
+        }
       } catch {
         setResults([]);
         setIsOpen(false);
+        setSearchError("Search failed. Check your connection.");
       } finally {
         setIsLoading(false);
       }
@@ -84,6 +94,7 @@ export default function LocationSearch({
   function handleSelect(point: RoutePoint) {
     setQuery(point.name);
     setIsOpen(false);
+    setSearchError(null);
     onSelect(point);
   }
 
@@ -110,6 +121,10 @@ export default function LocationSearch({
           </div>
         )}
       </div>
+
+      {searchError && (
+        <p className="mt-1 text-xs text-muted">{searchError}</p>
+      )}
 
       {isOpen && results.length > 0 && (
         <div className="absolute z-50 mt-1 w-full rounded-xl border border-border bg-card shadow-xl">

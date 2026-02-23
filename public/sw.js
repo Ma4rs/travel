@@ -1,6 +1,14 @@
-const CACHE_NAME = "travelguide-v1";
+// Bump this version string on every deploy to invalidate old caches
+const CACHE_VERSION = "2";
+const CACHE_NAME = `travelguide-v${CACHE_VERSION}`;
 
-const PRECACHE_URLS = ["/", "/explore", "/album", "/plan", "/route"];
+const PRECACHE_URLS = [
+  `/?v=${CACHE_VERSION}`,
+  `/explore?v=${CACHE_VERSION}`,
+  `/album?v=${CACHE_VERSION}`,
+  `/plan?v=${CACHE_VERSION}`,
+  `/route?v=${CACHE_VERSION}`,
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -14,7 +22,7 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((key) => key !== CACHE_NAME)
+          .filter((key) => key.startsWith("travelguide-") && key !== CACHE_NAME)
           .map((key) => caches.delete(key))
       )
     )
@@ -26,7 +34,6 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET and API/auth requests — always go to network
   if (
     request.method !== "GET" ||
     url.pathname.startsWith("/api/") ||
@@ -35,7 +42,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // For Supabase storage (photos) — cache first, then network
+  // Supabase storage photos: cache first, then network
   if (url.hostname.includes("supabase.co") && url.pathname.includes("/storage/")) {
     event.respondWith(
       caches.match(request).then(
@@ -53,7 +60,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // For app pages and assets — network first, cache fallback
+  // App pages and assets: network first, cache fallback
   event.respondWith(
     fetch(request)
       .then((response) => {

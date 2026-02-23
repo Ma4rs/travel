@@ -47,8 +47,14 @@ export default function RoutePage() {
   const [loadingStep, setLoadingStep] = useState(0);
   const [cooldown, setCooldown] = useState(0);
   const [mobileTab, setMobileTab] = useState<"list" | "map">("list");
+  const [hasSearched, setHasSearched] = useState(false);
   const stepTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const cooldownInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const originRef = useRef(origin);
+  const destinationRef = useRef(destination);
+  originRef.current = origin;
+  destinationRef.current = destination;
 
   useEffect(() => {
     const from = searchParams.get("from");
@@ -57,14 +63,14 @@ export default function RoutePage() {
 
     async function geocodeParams() {
       try {
-        if (from && !origin) {
+        if (from && !originRef.current) {
           const res = await fetch(`/api/geocode?q=${encodeURIComponent(from)}`);
           if (res.ok) {
             const data = await res.json();
             if (Array.isArray(data) && data.length > 0) setOrigin(data[0]);
           }
         }
-        if (to && !destination) {
+        if (to && !destinationRef.current) {
           const res = await fetch(`/api/geocode?q=${encodeURIComponent(to)}`);
           if (res.ok) {
             const data = await res.json();
@@ -76,8 +82,7 @@ export default function RoutePage() {
       }
     }
     geocodeParams();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [searchParams, setOrigin, setDestination]);
 
   const startCooldown = useCallback(() => {
     setCooldown(COOLDOWN_SECONDS);
@@ -132,7 +137,8 @@ export default function RoutePage() {
       const data = await res.json();
       setRouteGeometry(data.routeGeometry);
       setQuests(data.quests);
-      setMobileTab("map");
+      setHasSearched(true);
+      if (data.quests.length > 0) setMobileTab("map");
       startCooldown();
     } catch {
       setError("Something went wrong. Please try again.");
@@ -260,6 +266,16 @@ export default function RoutePage() {
                   onClick={() => setSelectedQuest(quest)}
                 />
               ))}
+            </div>
+          )}
+
+          {hasSearched && quests.length === 0 && !isLoadingQuests && !error && (
+            <div className="border-t border-border p-6 text-center">
+              <div className="mb-2 text-3xl">🔍</div>
+              <p className="text-sm font-medium">No side quests found</p>
+              <p className="mt-1 text-xs text-muted">
+                Try a longer route or select different interests.
+              </p>
             </div>
           )}
         </aside>

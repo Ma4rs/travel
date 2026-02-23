@@ -1,8 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import type { Quest } from "@/types";
 import { QUEST_CATEGORIES } from "@/types";
+
+function SafeImage({ src, alt, width, height, className }: {
+  src: string; alt: string; width: number; height: number; className: string;
+}) {
+  const [err, setErr] = useState(false);
+  if (err) return null;
+  return (
+    <Image src={src} alt={alt} width={width} height={height} className={className} onError={() => setErr(true)} />
+  );
+}
 
 interface QuestCardProps {
   quest: Quest;
@@ -24,7 +35,7 @@ export default function QuestCard({
         className="flex w-full items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-card-hover"
       >
         {quest.completed && quest.photoUrl ? (
-          <Image
+          <SafeImage
             src={quest.photoUrl}
             alt=""
             width={40}
@@ -89,7 +100,7 @@ export default function QuestCard({
       {quest.completed && (
         <div className="mt-3 flex items-center gap-2 text-sm font-medium text-secondary">
           {quest.photoUrl && (
-            <Image
+            <SafeImage
               src={quest.photoUrl}
               alt=""
               width={32}

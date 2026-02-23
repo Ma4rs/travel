@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import MapErrorBoundary from "@/components/map/MapErrorBoundary";
 
 const ExploreMap = dynamic(() => import("./ExploreMap"), {
   ssr: false,
@@ -21,5 +22,9 @@ interface DynamicExploreMapProps {
 }
 
 export default function DynamicExploreMap(props: DynamicExploreMapProps) {
-  return <ExploreMap {...props} />;
+  return (
+    <MapErrorBoundary>
+      <ExploreMap {...props} />
+    </MapErrorBoundary>
+  );
 }

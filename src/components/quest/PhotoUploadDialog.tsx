@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 
 interface PhotoUploadDialogProps {
   questTitle: string;
@@ -16,7 +16,9 @@ const JPEG_QUALITY = 0.85;
 function resizeImage(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
     img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
       let { width, height } = img;
 
       if (width > MAX_WIDTH || height > MAX_HEIGHT) {
@@ -41,8 +43,11 @@ function resizeImage(file: File): Promise<Blob> {
         JPEG_QUALITY
       );
     };
-    img.onerror = () => reject(new Error("Failed to load image"));
-    img.src = URL.createObjectURL(file);
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Failed to load image"));
+    };
+    img.src = objectUrl;
   });
 }
 
@@ -58,13 +63,37 @@ export default function PhotoUploadDialog({
   const [error, setError] = useState<string | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-  const handleFileSelected = useCallback((file: File) => {
-    setSelectedFile(file);
-    setError(null);
-    const url = URL.createObjectURL(file);
-    setPreview(url);
-  }, []);
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
+
+  useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    dialogRef.current?.focus();
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      prev?.focus();
+    };
+  }, [onClose]);
+
+  const handleFileSelected = useCallback(
+    (file: File) => {
+      if (preview) URL.revokeObjectURL(preview);
+      setSelectedFile(file);
+      setError(null);
+      setPreview(URL.createObjectURL(file));
+    },
+    [preview]
+  );
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,7 +136,9 @@ export default function PhotoUploadDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[1100] flex items-end justify-center sm:items-center"
+      ref={dialogRef}
+      tabIndex={-1}
+      className="fixed inset-0 z-[1100] flex items-end justify-center sm:items-center outline-none"
       role="dialog"
       aria-modal="true"
       aria-labelledby="photo-upload-title"
@@ -139,9 +170,11 @@ export default function PhotoUploadDialog({
               />
               <button
                 onClick={() => {
+                  if (preview) URL.revokeObjectURL(preview);
                   setPreview(null);
                   setSelectedFile(null);
                 }}
+                aria-label="Remove photo"
                 className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-sm text-white hover:bg-black/70"
               >
                 ✕
@@ -154,14 +187,14 @@ export default function PhotoUploadDialog({
               onClick={() => cameraRef.current?.click()}
               className="flex flex-1 flex-col items-center gap-2 rounded-xl border-2 border-dashed border-border p-6 transition-colors hover:border-primary hover:bg-primary/5"
             >
-              <span className="text-3xl">📷</span>
+              <span className="text-3xl" aria-hidden="true">📷</span>
               <span className="text-sm font-medium">Take Photo</span>
             </button>
             <button
               onClick={() => galleryRef.current?.click()}
               className="flex flex-1 flex-col items-center gap-2 rounded-xl border-2 border-dashed border-border p-6 transition-colors hover:border-primary hover:bg-primary/5"
             >
-              <span className="text-3xl">🖼️</span>
+              <span className="text-3xl" aria-hidden="true">🖼️</span>
               <span className="text-sm font-medium">Gallery</span>
             </button>
           </div>

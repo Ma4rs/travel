@@ -12,13 +12,13 @@ const features = [
     icon: "🎮",
     title: "Gamified Exploration",
     description:
-      "Earn XP, unlock badges, and compete with friends. Turn every trip into an adventure.",
+      "Earn XP for every quest, track progress across 16 German states, and build a personal photo album of your adventures.",
   },
   {
-    icon: "⚡",
-    title: "Real-Time Suggestions",
+    icon: "📱",
+    title: "Installable & Offline",
     description:
-      "Get quest notifications as you drive. Weather-aware, time-aware, and tailored to your interests.",
+      "Install on your phone like a native app. Browse your album and completed quests even without signal.",
   },
 ];
 

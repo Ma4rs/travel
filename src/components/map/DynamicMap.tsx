@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { Quest, CompletedQuestData } from "@/types";
+import MapErrorBoundary from "./MapErrorBoundary";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -25,5 +26,9 @@ interface DynamicMapProps {
 }
 
 export default function DynamicMap(props: DynamicMapProps) {
-  return <MapView {...props} />;
+  return (
+    <MapErrorBoundary>
+      <MapView {...props} />
+    </MapErrorBoundary>
+  );
 }
