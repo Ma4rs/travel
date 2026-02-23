@@ -9,34 +9,43 @@ export interface POI {
   tags: Record<string, string>;
 }
 
-const POI_QUERIES: Record<string, string> = {
-  tourism: `nwr["tourism"~"viewpoint|museum|castle|artwork|attraction"](around:{radius},{lat},{lng});`,
-  food: `nwr["amenity"~"restaurant|cafe|pub"]["cuisine"](around:{radius},{lat},{lng});`,
-  nature: `nwr["natural"~"peak|waterfall|spring|cave_entrance|beach"](around:{radius},{lat},{lng});`,
-  historic: `nwr["historic"~"castle|monument|memorial|ruins|archaeological_site"](around:{radius},{lat},{lng});`,
-  culture: `nwr["amenity"~"theatre|arts_centre|library"]["name"](around:{radius},{lat},{lng});`,
-};
+const POI_TYPES = [
+  `nwr["tourism"~"viewpoint|museum|castle|artwork|attraction"]`,
+  `nwr["amenity"~"restaurant|cafe|pub"]["cuisine"]`,
+  `nwr["natural"~"peak|waterfall|spring|cave_entrance|beach"]`,
+  `nwr["historic"~"castle|monument|memorial|ruins|archaeological_site"]`,
+  `nwr["amenity"~"theatre|arts_centre|library"]["name"]`,
+];
 
 export async function findPOIsNearPoint(
   lat: number,
   lng: number,
   radiusMeters: number = 10000
 ): Promise<POI[]> {
-  const queries = Object.values(POI_QUERIES)
-    .map((q) =>
-      q
-        .replace("{radius}", String(radiusMeters))
-        .replace("{lat}", String(lat))
-        .replace("{lng}", String(lng))
-    )
-    .join("\n");
+  return findPOIsAlongRoute([[lat, lng]], radiusMeters);
+}
+
+export async function findPOIsAlongRoute(
+  samplePoints: [number, number][],
+  radiusMeters: number = 10000
+): Promise<POI[]> {
+  if (samplePoints.length === 0) return [];
+
+  // Build a single Overpass query that covers ALL sample points at once
+  const aroundClauses = samplePoints
+    .map(([lat, lng]) => `(around:${radiusMeters},${lat},${lng})`)
+    .join("");
+
+  const queries = POI_TYPES.map(
+    (type) => `${type}${aroundClauses};`
+  ).join("\n");
 
   const overpassQuery = `
-    [out:json][timeout:25];
+    [out:json][timeout:30];
     (
       ${queries}
     );
-    out center 30;
+    out center 40;
   `;
 
   const res = await fetchWithRetry(
@@ -54,8 +63,14 @@ export async function findPOIsNearPoint(
 
   if (!data.elements || !Array.isArray(data.elements)) return [];
 
+  const seenIds = new Set<number>();
+
   return data.elements
-    .filter((el: { tags?: { name?: string } }) => el.tags?.name)
+    .filter((el: { id: number; tags?: { name?: string } }) => {
+      if (!el.tags?.name || seenIds.has(el.id)) return false;
+      seenIds.add(el.id);
+      return true;
+    })
     .map(
       (el: {
         id: number;
@@ -73,37 +88,6 @@ export async function findPOIsNearPoint(
       })
     )
     .filter((poi: POI) => poi.lat !== 0 && poi.lng !== 0);
-}
-
-export async function findPOIsAlongRoute(
-  samplePoints: [number, number][],
-  radiusMeters: number = 10000
-): Promise<POI[]> {
-  const allPois: POI[] = [];
-  const seenIds = new Set<number>();
-
-  const batchSize = 5;
-  for (let i = 0; i < samplePoints.length; i += batchSize) {
-    const batch = samplePoints.slice(i, i + batchSize);
-    const results = await Promise.all(
-      batch.map(([lat, lng]) => findPOIsNearPoint(lat, lng, radiusMeters))
-    );
-
-    for (const pois of results) {
-      for (const poi of pois) {
-        if (!seenIds.has(poi.id)) {
-          seenIds.add(poi.id);
-          allPois.push(poi);
-        }
-      }
-    }
-
-    if (i + batchSize < samplePoints.length) {
-      await new Promise((r) => setTimeout(r, 500));
-    }
-  }
-
-  return allPois;
 }
 
 function detectPOIType(tags: Record<string, string>): string {

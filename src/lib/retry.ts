@@ -1,7 +1,7 @@
 export async function retryWithBackoff<T>(
   fn: () => Promise<T>,
   maxRetries: number = 3,
-  baseDelayMs: number = 1000
+  baseDelayMs: number = 2000
 ): Promise<T> {
   let lastError: Error | undefined;
 
@@ -11,11 +11,15 @@ export async function retryWithBackoff<T>(
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
 
+      const msg = lastError.message;
       const isRetryable =
-        lastError.message.includes("429") ||
-        lastError.message.includes("5") ||
-        lastError.message.includes("rate") ||
-        lastError.message.includes("timeout");
+        msg.includes("429") ||
+        msg.includes("500") ||
+        msg.includes("502") ||
+        msg.includes("503") ||
+        msg.includes("504") ||
+        msg.includes("rate") ||
+        msg.includes("timeout");
 
       if (!isRetryable || attempt === maxRetries) throw lastError;
 
@@ -30,7 +34,7 @@ export async function retryWithBackoff<T>(
 export async function fetchWithRetry(
   url: string,
   options?: RequestInit,
-  maxRetries: number = 3
+  maxRetries: number = 2
 ): Promise<Response> {
   return retryWithBackoff(async () => {
     const res = await fetch(url, options);
@@ -38,5 +42,5 @@ export async function fetchWithRetry(
       throw new Error(`HTTP ${res.status}: ${res.statusText}`);
     }
     return res;
-  }, maxRetries);
+  }, maxRetries, 3000);
 }
