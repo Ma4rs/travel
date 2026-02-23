@@ -48,6 +48,8 @@ export default function RoutePage() {
   const [cooldown, setCooldown] = useState(0);
   const [mobileTab, setMobileTab] = useState<"list" | "map">("list");
   const [hasSearched, setHasSearched] = useState(false);
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const stepTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const cooldownInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -146,6 +148,52 @@ export default function RoutePage() {
     } finally {
       setIsLoadingQuests(false);
       stepTimers.current.forEach(clearTimeout);
+    }
+  }
+
+  async function handleFindMoreAI() {
+    if (!origin || !destination) return;
+
+    setIsLoadingAI(true);
+    setAiError(null);
+
+    try {
+      const res = await fetch("/api/quests-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originLat: origin.lat,
+          originLng: origin.lng,
+          originName: origin.name,
+          destLat: destination.lat,
+          destLng: destination.lng,
+          destName: destination.name,
+          interests,
+          maxDetourMinutes,
+        }),
+      });
+
+      if (!res.ok) throw new Error("AI enrichment failed");
+
+      const data = await res.json();
+      if (data.quests?.length > 0) {
+        const existingIds = new Set(quests.map((q) => q.id));
+        const newQuests = data.quests.filter(
+          (q: { id: string }) => !existingIds.has(q.id)
+        );
+        if (newQuests.length > 0) {
+          setQuests([...quests, ...newQuests]);
+        } else {
+          setAiError("No additional quests found.");
+        }
+      } else {
+        setAiError("No additional quests found.");
+      }
+      startCooldown();
+    } catch {
+      setAiError("AI search failed. The curated quests above are still available.");
+    } finally {
+      setIsLoadingAI(false);
     }
   }
 
@@ -273,10 +321,34 @@ export default function RoutePage() {
           {hasSearched && quests.length === 0 && !isLoadingQuests && !error && (
             <div className="border-t border-border p-6 text-center">
               <div className="mb-2 text-3xl">🔍</div>
-              <p className="text-sm font-medium">No side quests found</p>
+              <p className="text-sm font-medium">No curated quests found nearby</p>
               <p className="mt-1 text-xs text-muted">
-                Try a longer route or select different interests.
+                Try a longer route, increase the max detour, or use AI to discover more.
               </p>
+            </div>
+          )}
+
+          {hasSearched && !isLoadingQuests && origin && destination && (
+            <div className="border-t border-border p-4">
+              <button
+                onClick={handleFindMoreAI}
+                disabled={isLoadingAI || cooldown > 0}
+                className="w-full rounded-xl border border-accent py-2.5 text-sm font-medium text-accent transition-colors hover:bg-accent/10 disabled:opacity-50"
+              >
+                {isLoadingAI ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+                    Searching with AI...
+                  </span>
+                ) : cooldown > 0 ? (
+                  `Wait ${cooldown}s...`
+                ) : (
+                  "Find More with AI"
+                )}
+              </button>
+              {aiError && (
+                <p className="mt-2 text-center text-xs text-muted">{aiError}</p>
+              )}
             </div>
           )}
         </aside>

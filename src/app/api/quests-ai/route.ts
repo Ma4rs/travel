@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateQuestsForRoute } from "@/lib/quest-generator";
+import { generateAIQuestsForRoute } from "@/lib/quest-generator";
 import type { QuestCategory } from "@/types";
 
+export const maxDuration = 60;
 
 const VALID_CATEGORIES: QuestCategory[] = [
   "hidden_gem", "scenic", "food", "history",
@@ -20,26 +21,15 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const {
-      originLat,
-      originLng,
-      originName,
-      destLat,
-      destLng,
-      destName,
-      interests,
-      maxDetourMinutes,
+      originLat, originLng, originName,
+      destLat, destLng, destName,
+      interests, maxDetourMinutes,
     } = body;
 
-    if (!isValidLat(originLat) || !isValidLng(originLng)) {
+    if (!isValidLat(originLat) || !isValidLng(originLng) ||
+        !isValidLat(destLat) || !isValidLng(destLng)) {
       return NextResponse.json(
-        { error: "Invalid origin coordinates" },
-        { status: 400 }
-      );
-    }
-
-    if (!isValidLat(destLat) || !isValidLng(destLng)) {
-      return NextResponse.json(
-        { error: "Invalid destination coordinates" },
+        { error: "Invalid coordinates" },
         { status: 400 }
       );
     }
@@ -55,22 +45,18 @@ export async function POST(request: NextRequest) {
     const oName = typeof originName === "string" ? originName.slice(0, 200) : "Origin";
     const dName = typeof destName === "string" ? destName.slice(0, 200) : "Destination";
 
-    const result = await generateQuestsForRoute(
-      originLat,
-      originLng,
-      oName,
-      destLat,
-      destLng,
-      dName,
+    const quests = await generateAIQuestsForRoute(
+      originLat, originLng, oName,
+      destLat, destLng, dName,
       validInterests as QuestCategory[],
       detour
     );
 
-    return NextResponse.json(result);
+    return NextResponse.json({ quests });
   } catch (error) {
-    console.error("Quest generation failed:", error);
+    console.error("AI quest generation failed:", error);
     return NextResponse.json(
-      { error: "Failed to generate quests" },
+      { error: "AI quest generation failed" },
       { status: 500 }
     );
   }
