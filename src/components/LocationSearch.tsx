@@ -22,7 +22,7 @@ export default function LocationSearch({
   const [results, setResults] = useState<RoutePoint[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const debounceRef = useRef<NodeJS.Timeout>();
+  const debounceRef = useRef<NodeJS.Timeout>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
