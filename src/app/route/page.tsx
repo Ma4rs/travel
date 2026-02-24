@@ -17,15 +17,40 @@ const COOLDOWN_SECONDS = 15;
 function buildGoogleMapsUrl(
   origin: RoutePoint,
   destination: RoutePoint,
-  quests: Quest[]
+  quests: Quest[],
+  routeGeometry: [number, number][]
 ): string {
+  // Sort quests by position along the route for logical driving order
+  const sorted = [...quests].sort((a, b) => {
+    const aIdx = findClosestRouteIndex(a.lat, a.lng, routeGeometry);
+    const bIdx = findClosestRouteIndex(b.lat, b.lng, routeGeometry);
+    return aIdx - bIdx;
+  });
+
   const base = "https://www.google.com/maps/dir/";
   const waypoints = [
     `${origin.lat},${origin.lng}`,
-    ...quests.map((q) => `${q.lat},${q.lng}`),
+    ...sorted.map((q) => `${q.lat},${q.lng}`),
     `${destination.lat},${destination.lng}`,
   ];
   return base + waypoints.join("/");
+}
+
+function findClosestRouteIndex(
+  lat: number,
+  lng: number,
+  geometry: [number, number][]
+): number {
+  let minDist = Infinity;
+  let minIdx = 0;
+  for (let i = 0; i < geometry.length; i++) {
+    const d = (geometry[i][0] - lat) ** 2 + (geometry[i][1] - lng) ** 2;
+    if (d < minDist) {
+      minDist = d;
+      minIdx = i;
+    }
+  }
+  return minIdx;
 }
 
 export default function RoutePage() {
@@ -57,6 +82,8 @@ export default function RoutePage() {
   const [hasSearched, setHasSearched] = useState(false);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [selectedQuestIds, setSelectedQuestIds] = useState<Set<string>>(new Set());
+  const [showSelectAllWarning, setShowSelectAllWarning] = useState(false);
   const cooldownInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const originRef = useRef(origin);
@@ -112,11 +139,33 @@ export default function RoutePage() {
     };
   }, []);
 
+  function toggleQuestSelection(questId: string) {
+    setSelectedQuestIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(questId)) next.delete(questId);
+      else next.add(questId);
+      return next;
+    });
+    setShowSelectAllWarning(false);
+  }
+
+  function handleSelectAll() {
+    setSelectedQuestIds(new Set(quests.map((q) => q.id)));
+    setShowSelectAllWarning(true);
+  }
+
+  function handleClearAll() {
+    setSelectedQuestIds(new Set());
+    setShowSelectAllWarning(false);
+  }
+
   async function handleFindQuests() {
     if (!origin || !destination) return;
 
     setError(null);
     setIsLoadingQuests(true);
+    setSelectedQuestIds(new Set());
+    setShowSelectAllWarning(false);
 
     try {
       const res = await fetch("/api/quests", {
@@ -195,6 +244,9 @@ export default function RoutePage() {
     }
   }
 
+  const selectedQuests = quests.filter((q) => selectedQuestIds.has(q.id));
+  const selectedCount = selectedQuests.length;
+
   const totalXP = quests.reduce((sum, q) => sum + q.xp, 0);
   const completedXP = quests
     .filter((q) => q.completed)
@@ -233,7 +285,7 @@ export default function RoutePage() {
         {quests.length > 0 && (
           <div className="hidden sm:flex items-center gap-3 text-sm">
             <span className="text-muted">
-              {quests.length} quests found
+              {selectedCount}/{quests.length} selected
             </span>
             <span className="rounded-full bg-accent/10 px-3 py-1 font-medium text-accent">
               {completedXP}/{totalXP} XP
@@ -301,30 +353,61 @@ export default function RoutePage() {
 
           {/* Quest List */}
           {quests.length > 0 && (
-            <div className="flex-1 space-y-2 border-t border-border p-4">
-              <h3 className="mb-3 text-sm font-medium text-muted">
-                Side Quests Along Your Route
-              </h3>
-              {quests.map((quest) => (
-                <QuestCard
-                  key={quest.id}
-                  quest={quest}
-                  compact
-                  onClick={() => setSelectedQuest(quest)}
-                />
-              ))}
+            <div className="flex-1 border-t border-border p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-medium text-muted">
+                  Side Quests Along Your Route
+                </h3>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSelectAll}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    Select All
+                  </button>
+                  <span className="text-xs text-muted">|</span>
+                  <button
+                    onClick={handleClearAll}
+                    className="text-xs font-medium text-muted hover:text-foreground hover:underline"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              {showSelectAllWarning && (
+                <p className="mb-3 rounded-lg bg-accent/10 p-2.5 text-xs text-accent">
+                  Heads up: These quests are spread across different areas. Your
+                  actual travel time may be longer than the individual detour
+                  times suggest.
+                </p>
+              )}
+
+              <div className="space-y-2">
+                {quests.map((quest) => (
+                  <QuestCard
+                    key={quest.id}
+                    quest={quest}
+                    compact
+                    selected={selectedQuestIds.has(quest.id)}
+                    onToggleSelect={toggleQuestSelection}
+                    onClick={() => setSelectedQuest(quest)}
+                  />
+                ))}
+              </div>
             </div>
           )}
 
-          {quests.length > 0 && origin && destination && (
+          {/* Navigate Full Route */}
+          {selectedCount > 0 && origin && destination && (
             <div className="border-t border-border p-4">
               <a
-                href={buildGoogleMapsUrl(origin, destination, quests)}
+                href={buildGoogleMapsUrl(origin, destination, selectedQuests, routeGeometry)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 font-medium text-white transition-colors hover:bg-primary-hover"
               >
-                Navigate Full Route ({quests.length} stops)
+                Navigate Full Route ({selectedCount} {selectedCount === 1 ? "stop" : "stops"})
               </a>
             </div>
           )}
@@ -374,6 +457,7 @@ export default function RoutePage() {
             routeGeometry={routeGeometry}
             quests={quests}
             completedQuests={completedQuests}
+            selectedQuestIds={selectedQuestIds}
             onQuestClick={(q: Quest) => setSelectedQuest(q)}
           />
         </main>
@@ -393,6 +477,11 @@ export default function RoutePage() {
           }`}
         >
           Quests
+          {quests.length > 0 && (
+            <span className="ml-1.5 rounded-full bg-border px-1.5 py-0.5 text-xs">
+              {quests.length}
+            </span>
+          )}
         </button>
         <button
           onClick={() => setMobileTab("map")}
@@ -406,9 +495,9 @@ export default function RoutePage() {
           }`}
         >
           Map
-          {quests.length > 0 && (
-            <span className="ml-1.5 rounded-full bg-accent/10 px-1.5 py-0.5 text-xs text-accent">
-              {quests.length}
+          {selectedCount > 0 && (
+            <span className="ml-1.5 rounded-full bg-secondary/20 px-1.5 py-0.5 text-xs text-secondary">
+              {selectedCount}
             </span>
           )}
         </button>

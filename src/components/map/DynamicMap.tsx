@@ -22,6 +22,7 @@ interface DynamicMapProps {
   routeGeometry?: [number, number][];
   quests?: Quest[];
   completedQuests?: Record<string, CompletedQuestData>;
+  selectedQuestIds?: Set<string>;
   onQuestClick?: (quest: Quest) => void;
 }
 

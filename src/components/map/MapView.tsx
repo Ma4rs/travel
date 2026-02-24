@@ -12,6 +12,7 @@ interface MapViewProps {
   routeGeometry?: [number, number][];
   quests?: Quest[];
   completedQuests?: Record<string, CompletedQuestData>;
+  selectedQuestIds?: Set<string>;
   onQuestClick?: (quest: Quest) => void;
 }
 
@@ -21,6 +22,7 @@ export default function MapView({
   routeGeometry = [],
   quests = [],
   completedQuests,
+  selectedQuestIds,
   onQuestClick,
 }: MapViewProps) {
   const mapRef = useRef<L.Map | null>(null);
@@ -87,12 +89,15 @@ export default function MapView({
       const cat = QUEST_CATEGORIES[quest.category];
       const photoUrl = completedQuests?.[quest.id]?.photoUrl || quest.photoUrl;
       const isCompleted = quest.completed || !!completedQuests?.[quest.id];
+      const isSelected = !selectedQuestIds || selectedQuestIds.has(quest.id);
+      const markerColor = isSelected ? cat.color : "#9CA3AF";
+      const markerOpacity = isSelected ? "1" : "0.5";
 
       const innerHtml =
         isCompleted && photoUrl
-          ? `<img src="${photoUrl}" style="width:36px;height:36px;border-radius:50%;border:3px solid #10B981;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;" />`
+          ? `<img src="${photoUrl}" style="width:36px;height:36px;border-radius:50%;border:3px solid #10B981;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;opacity:${markerOpacity};" />`
           : `<div style="
-              background: ${cat.color};
+              background: ${markerColor};
               width: 36px;
               height: 36px;
               border-radius: 50%;
@@ -100,9 +105,10 @@ export default function MapView({
               align-items: center;
               justify-content: center;
               font-size: 18px;
-              border: 3px solid ${isCompleted ? "#10B981" : "white"};
+              border: 3px solid ${isCompleted ? "#10B981" : isSelected ? "white" : "#D1D5DB"};
               box-shadow: 0 2px 8px rgba(0,0,0,0.3);
               cursor: pointer;
+              opacity: ${markerOpacity};
             ">${cat.icon}</div>`;
 
       const marker = L.marker([quest.lat, quest.lng], {
@@ -122,7 +128,7 @@ export default function MapView({
       marker.on("click", () => onQuestClick?.(quest));
       markersRef.current!.addLayer(marker);
     });
-  }, [quests, completedQuests, onQuestClick]);
+  }, [quests, completedQuests, selectedQuestIds, onQuestClick]);
 
   return (
     <div
