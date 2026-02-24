@@ -10,9 +10,23 @@ import QuestCard from "@/components/quest/QuestCard";
 import QuestDetail from "@/components/quest/QuestDetail";
 import UserMenu from "@/components/UserMenu";
 import { useTripStore } from "@/stores/trip-store";
-import type { Quest } from "@/types";
+import type { Quest, RoutePoint } from "@/types";
 
 const COOLDOWN_SECONDS = 15;
+
+function buildGoogleMapsUrl(
+  origin: RoutePoint,
+  destination: RoutePoint,
+  quests: Quest[]
+): string {
+  const base = "https://www.google.com/maps/dir/";
+  const waypoints = [
+    `${origin.lat},${origin.lng}`,
+    ...quests.map((q) => `${q.lat},${q.lng}`),
+    `${destination.lat},${destination.lng}`,
+  ];
+  return base + waypoints.join("/");
+}
 
 export default function RoutePage() {
   const searchParams = useSearchParams();
@@ -299,6 +313,19 @@ export default function RoutePage() {
                   onClick={() => setSelectedQuest(quest)}
                 />
               ))}
+            </div>
+          )}
+
+          {quests.length > 0 && origin && destination && (
+            <div className="border-t border-border p-4">
+              <a
+                href={buildGoogleMapsUrl(origin, destination, quests)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 font-medium text-white transition-colors hover:bg-primary-hover"
+              >
+                Navigate Full Route ({quests.length} stops)
+              </a>
             </div>
           )}
 
