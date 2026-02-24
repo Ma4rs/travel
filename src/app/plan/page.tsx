@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import InterestFilter from "@/components/InterestFilter";
 import UserMenu from "@/components/UserMenu";
@@ -8,11 +8,13 @@ import type { QuestCategory } from "@/types";
 
 interface TripSuggestion {
   title: string;
-  description: string;
   destination: string;
+  description: string;
+  questCount: number;
+  totalXP: number;
   estimatedCost: number;
   highlights: string[];
-  dailyPlan: string[];
+  center: [number, number];
 }
 
 export default function PlanPage() {
@@ -23,28 +25,6 @@ export default function PlanPage() {
   const [suggestions, setSuggestions] = useState<TripSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState(0);
-  const cooldownInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const startCooldown = useCallback(() => {
-    if (cooldownInterval.current) clearInterval(cooldownInterval.current);
-    setCooldown(15);
-    cooldownInterval.current = setInterval(() => {
-      setCooldown((prev) => {
-        if (prev <= 1) {
-          if (cooldownInterval.current) clearInterval(cooldownInterval.current);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (cooldownInterval.current) clearInterval(cooldownInterval.current);
-    };
-  }, []);
 
   function toggleInterest(cat: QuestCategory) {
     setInterests((prev) =>
@@ -60,19 +40,21 @@ export default function PlanPage() {
     setSuggestions([]);
 
     try {
-      const res = await fetch("/api/trip-suggest", {
+      const res = await fetch("/api/trip-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ startLocation, budget, days, interests }),
       });
 
-      if (!res.ok) throw new Error("Failed to generate suggestions");
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to plan trip");
+      }
 
       const data = await res.json();
       setSuggestions(data.suggestions);
-      startCooldown();
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setIsLoading(false);
     }
@@ -92,7 +74,7 @@ export default function PlanPage() {
           <div className="flex-1">
             <h1 className="text-lg font-semibold">Plan a Trip</h1>
             <p className="text-xs text-muted">
-              Tell us your budget and interests, we&apos;ll handle the rest
+              Tell us your budget and interests, we&apos;ll find the best destinations
             </p>
           </div>
           <UserMenu />
@@ -157,16 +139,14 @@ export default function PlanPage() {
             <div className="flex items-end">
               <button
                 onClick={handlePlanTrip}
-                disabled={!startLocation || isLoading || cooldown > 0}
+                disabled={!startLocation || isLoading}
                 className="w-full rounded-xl bg-primary py-3 font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    Planning...
+                    Searching...
                   </span>
-                ) : cooldown > 0 ? (
-                  `Wait ${cooldown}s...`
                 ) : (
                   "Plan My Trip"
                 )}
@@ -189,12 +169,12 @@ export default function PlanPage() {
         {suggestions.length > 0 && (
           <div>
             <h2 className="mb-4 text-xl font-semibold">
-              Your Trip Suggestions
+              Recommended Destinations
             </h2>
             <div className="grid gap-6">
-              {suggestions.map((trip, i) => (
+              {suggestions.map((trip) => (
                 <div
-                  key={i}
+                  key={trip.destination}
                   className="rounded-2xl border border-border bg-card p-6 transition-all hover:border-primary/30"
                 >
                   <div className="mb-4 flex items-start justify-between">
@@ -204,46 +184,39 @@ export default function PlanPage() {
                         📍 {trip.destination}
                       </p>
                     </div>
-                    <div className="rounded-full bg-secondary/10 px-3 py-1 text-sm font-medium text-secondary">
-                      ~{trip.estimatedCost}€
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-accent/10 px-3 py-1 text-sm font-medium text-accent">
+                        {trip.totalXP} XP
+                      </span>
+                      <span className="rounded-full bg-secondary/10 px-3 py-1 text-sm font-medium text-secondary">
+                        ~{trip.estimatedCost}€
+                      </span>
                     </div>
                   </div>
 
                   <p className="mb-4 text-muted">{trip.description}</p>
 
-                  {trip.highlights?.length > 0 && (
-                  <div className="mb-4">
-                    <h4 className="mb-2 text-sm font-medium">Highlights</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {trip.highlights.map((h, j) => (
-                        <span
-                          key={j}
-                          className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary"
-                        >
-                          {h}
-                        </span>
-                      ))}
-                    </div>
+                  <div className="mb-4 flex items-center gap-3 text-sm text-muted">
+                    <span className="rounded-lg bg-primary/10 px-2.5 py-1 font-medium text-primary">
+                      {trip.questCount} {trip.questCount === 1 ? "quest" : "quests"}
+                    </span>
+                    <span>{days} {days === 1 ? "day" : "days"}</span>
                   </div>
-                  )}
 
-                  {trip.dailyPlan?.length > 0 && (
-                  <div className="mb-4">
-                    <h4 className="mb-2 text-sm font-medium">Daily Plan</h4>
-                    <div className="space-y-2">
-                      {trip.dailyPlan.map((day, j) => (
-                        <div
-                          key={j}
-                          className="flex gap-3 rounded-lg bg-background p-3 text-sm"
-                        >
-                          <span className="shrink-0 font-medium text-accent">
-                            Day {j + 1}
+                  {trip.highlights.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="mb-2 text-sm font-medium">Top Quests</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {trip.highlights.map((h) => (
+                          <span
+                            key={h}
+                            className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary"
+                          >
+                            {h}
                           </span>
-                          <span className="text-muted">{day}</span>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
                   )}
 
                   <Link
@@ -259,14 +232,14 @@ export default function PlanPage() {
         )}
 
         {/* Empty State */}
-        {!isLoading && suggestions.length === 0 && (
+        {!isLoading && suggestions.length === 0 && !error && (
           <div className="py-16 text-center">
             <div className="mb-4 text-5xl">🧭</div>
             <h3 className="mb-2 text-lg font-medium">
               Where will your next adventure take you?
             </h3>
             <p className="text-sm text-muted">
-              Fill in your details above and let AI plan the perfect trip.
+              Fill in your details above and discover the best destinations for your trip.
             </p>
           </div>
         )}
