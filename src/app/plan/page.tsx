@@ -6,6 +6,8 @@ import InterestFilter from "@/components/InterestFilter";
 import UserMenu from "@/components/UserMenu";
 import type { QuestCategory } from "@/types";
 
+type FuelType = "petrol" | "diesel";
+
 interface TripSuggestion {
   title: string;
   destination: string;
@@ -13,8 +15,13 @@ interface TripSuggestion {
   questCount: number;
   totalXP: number;
   estimatedCost: number;
+  transportCost: number;
+  accommodationCost: number;
+  drivingDistanceKm: number;
   highlights: string[];
   center: [number, number];
+  hasDeutschlandticket: boolean;
+  fuelType: FuelType;
 }
 
 export default function PlanPage() {
@@ -22,6 +29,8 @@ export default function PlanPage() {
   const [budget, setBudget] = useState(500);
   const [days, setDays] = useState(3);
   const [interests, setInterests] = useState<QuestCategory[]>([]);
+  const [hasDeutschlandticket, setHasDeutschlandticket] = useState(false);
+  const [fuelType, setFuelType] = useState<FuelType>("petrol");
   const [suggestions, setSuggestions] = useState<TripSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +52,14 @@ export default function PlanPage() {
       const res = await fetch("/api/trip-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ startLocation, budget, days, interests }),
+        body: JSON.stringify({
+          startLocation,
+          budget,
+          days,
+          interests,
+          hasDeutschlandticket,
+          fuelType,
+        }),
       });
 
       if (!res.ok) {
@@ -59,6 +75,8 @@ export default function PlanPage() {
       setIsLoading(false);
     }
   }
+
+  const nights = Math.max(0, days - 1);
 
   return (
     <div className="min-h-screen">
@@ -154,7 +172,45 @@ export default function PlanPage() {
             </div>
           </div>
 
-          <div className="mt-6">
+          {/* Transport options */}
+          <div className="mt-6 flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={hasDeutschlandticket}
+                onChange={(e) => setHasDeutschlandticket(e.target.checked)}
+                className="h-4 w-4 rounded border-border accent-primary"
+              />
+              <span className="text-foreground">I have a Deutschlandticket</span>
+            </label>
+
+            {!hasDeutschlandticket && (
+              <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
+                <button
+                  onClick={() => setFuelType("petrol")}
+                  className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                    fuelType === "petrol"
+                      ? "bg-primary text-white"
+                      : "text-muted hover:text-foreground"
+                  }`}
+                >
+                  Petrol
+                </button>
+                <button
+                  onClick={() => setFuelType("diesel")}
+                  className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                    fuelType === "diesel"
+                      ? "bg-primary text-white"
+                      : "text-muted hover:text-foreground"
+                  }`}
+                >
+                  Diesel
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4">
             <InterestFilter selected={interests} onToggle={toggleInterest} />
           </div>
         </div>
@@ -195,6 +251,21 @@ export default function PlanPage() {
                   </div>
 
                   <p className="mb-4 text-muted">{trip.description}</p>
+
+                  {/* Cost breakdown */}
+                  <div className="mb-4 rounded-lg bg-background p-3 text-xs text-muted">
+                    {trip.hasDeutschlandticket ? (
+                      <div className="flex flex-wrap gap-3">
+                        <span>🚆 Deutschlandticket</span>
+                        <span>🏨 {nights} {nights === 1 ? "night" : "nights"} ({trip.accommodationCost}€)</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-3">
+                        <span>⛽ {trip.fuelType === "petrol" ? "Petrol" : "Diesel"} · {trip.drivingDistanceKm * 2} km round trip ({trip.transportCost}€)</span>
+                        <span>🏨 {nights} {nights === 1 ? "night" : "nights"} ({trip.accommodationCost}€)</span>
+                      </div>
+                    )}
+                  </div>
 
                   <div className="mb-4 flex items-center gap-3 text-sm text-muted">
                     <span className="rounded-lg bg-primary/10 px-2.5 py-1 font-medium text-primary">

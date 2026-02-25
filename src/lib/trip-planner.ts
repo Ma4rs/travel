@@ -1,6 +1,8 @@
 import { REGIONS } from "@/data/regions";
 import type { QuestCategory } from "@/types";
 
+export type FuelType = "petrol" | "diesel";
+
 export interface TripSuggestion {
   title: string;
   destination: string;
@@ -8,85 +10,128 @@ export interface TripSuggestion {
   questCount: number;
   totalXP: number;
   estimatedCost: number;
+  transportCost: number;
+  accommodationCost: number;
+  drivingDistanceKm: number;
   highlights: string[];
   center: [number, number];
+  hasDeutschlandticket: boolean;
+  fuelType: FuelType;
 }
 
-function haversineKm(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-const GAS_COST_PER_KM = 0.3;
+const FUEL_CONSUMPTION: Record<FuelType, number> = { petrol: 7.0, diesel: 5.5 };
+const FUEL_PRICE: Record<FuelType, number> = { petrol: 1.75, diesel: 1.65 };
 const ACCOMMODATION_PER_NIGHT = 60;
 
-export function planTrips(
+async function getDrivingDistanceKm(
+  fromLat: number,
+  fromLng: number,
+  toLat: number,
+  toLng: number
+): Promise<number> {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=false`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("OSRM failed");
+    const data = await res.json();
+    if (data.routes?.[0]?.distance) {
+      return data.routes[0].distance / 1000;
+    }
+  } catch {
+    // Fall back to straight-line * 1.3
+  }
+  const R = 6371;
+  const dLat = ((toLat - fromLat) * Math.PI) / 180;
+  const dLng = ((toLng - fromLng) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((fromLat * Math.PI) / 180) *
+      Math.cos((toLat * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  const straightLine = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return straightLine * 1.3;
+}
+
+export async function planTrips(
   startLat: number,
   startLng: number,
   budget: number,
   days: number,
-  interests: QuestCategory[]
-): TripSuggestion[] {
-  const scored = REGIONS.map((region) => {
+  interests: QuestCategory[],
+  hasDeutschlandticket: boolean,
+  fuelType: FuelType
+): Promise<TripSuggestion[]> {
+  const fuelCostPerKm =
+    (FUEL_CONSUMPTION[fuelType] / 100) * FUEL_PRICE[fuelType];
+
+  const regionsWithQuests = REGIONS.map((region) => {
     const matchingQuests =
       interests.length > 0
         ? region.quests.filter((q) => interests.includes(q.category))
         : region.quests;
 
-    const distanceKm = haversineKm(
-      startLat,
-      startLng,
-      region.center[0],
-      region.center[1]
-    );
-
-    const gasCost = distanceKm * 2 * GAS_COST_PER_KM;
-    const accommodationCost = Math.max(0, days - 1) * ACCOMMODATION_PER_NIGHT;
-    const estimatedCost = Math.round(gasCost + accommodationCost);
-
     const totalXP = matchingQuests.reduce((sum, q) => sum + q.xp, 0);
-
-    const topQuests = matchingQuests
+    const topQuests = [...matchingQuests]
       .sort((a, b) => b.xp - a.xp)
       .slice(0, 4);
 
-    const questNouns = matchingQuests.length === 1 ? "quest" : "quests";
+    return { region, matchingQuests, totalXP, topQuests };
+  }).filter((r) => r.matchingQuests.length > 0);
+
+  const distances = await Promise.all(
+    regionsWithQuests.map((r) =>
+      getDrivingDistanceKm(
+        startLat,
+        startLng,
+        r.region.center[0],
+        r.region.center[1]
+      )
+    )
+  );
+
+  const scored = regionsWithQuests.map((r, i) => {
+    const drivingDistanceKm = Math.round(distances[i]);
+    const roundTripKm = drivingDistanceKm * 2;
+
+    const transportCost = hasDeutschlandticket
+      ? 0
+      : Math.round(roundTripKm * fuelCostPerKm);
+    const accommodationCost = Math.max(0, days - 1) * ACCOMMODATION_PER_NIGHT;
+    const estimatedCost = transportCost + accommodationCost;
+
+    const questNouns = r.matchingQuests.length === 1 ? "quest" : "quests";
     const description =
-      matchingQuests.length > 0
-        ? `Discover ${matchingQuests.length} ${questNouns} in ${region.name}. Highlights include ${topQuests
+      r.matchingQuests.length > 0
+        ? `Discover ${r.matchingQuests.length} ${questNouns} in ${r.region.name}. Highlights include ${r.topQuests
             .slice(0, 2)
             .map((q) => q.title)
             .join(" and ")}.`
-        : `Explore ${region.name} and uncover its hidden treasures.`;
+        : `Explore ${r.region.name} and uncover its hidden treasures.`;
 
     return {
-      title: `Explore ${region.name}`,
-      destination: region.name,
+      title: `Explore ${r.region.name}`,
+      destination: r.region.name,
       description,
-      questCount: matchingQuests.length,
-      totalXP,
+      questCount: r.matchingQuests.length,
+      totalXP: r.totalXP,
       estimatedCost,
-      highlights: topQuests.map((q) => q.title),
-      center: region.center,
-      score: matchingQuests.length * 10 + totalXP / 10 - distanceKm / 50,
+      transportCost,
+      accommodationCost,
+      drivingDistanceKm,
+      highlights: r.topQuests.map((q) => q.title),
+      center: r.region.center,
+      hasDeutschlandticket,
+      fuelType,
+      score:
+        r.matchingQuests.length * 10 +
+        r.totalXP / 10 -
+        drivingDistanceKm / 50,
       fitsbudget: estimatedCost <= budget,
     };
   });
 
   return scored
-    .filter((s) => s.questCount > 0 && s.fitsbudget)
+    .filter((s) => s.fitsbudget)
     .sort((a, b) => b.score - a.score)
     .slice(0, 5)
     .map(({ score: _s, fitsbudget: _f, ...rest }) => rest);
