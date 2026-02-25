@@ -46,6 +46,8 @@ export interface Trip {
   totalDistance?: number;
   totalDuration?: number;
   createdAt: string;
+  days?: number;
+  itinerary?: DayPlan[];
 }
 
 export interface TripSuggestion {
@@ -97,6 +99,21 @@ export interface ExplorationProgress {
   completed: number;
   total: number;
   percentage: number;
+}
+
+export interface WeatherData {
+  code: number;
+  tempC: number;
+  icon: string;
+  label: string;
+}
+
+export interface DayPlan {
+  day: number;
+  quests: Quest[];
+  overnightLocation?: RoutePoint;
+  distanceKm: number;
+  durationMinutes: number;
 }
 
 export const QUEST_CATEGORIES: Record<

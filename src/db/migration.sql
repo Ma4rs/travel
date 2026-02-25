@@ -82,3 +82,32 @@ create policy "Users can delete own quest photos"
     bucket_id = 'quest-photos'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- ============================================================
+-- Saved Trips: persistent trip storage
+-- ============================================================
+
+create table if not exists public.saved_trips (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  title text not null,
+  trip_data jsonb not null,
+  created_at timestamptz default now() not null
+);
+
+alter table public.saved_trips enable row level security;
+
+create policy "Users can read own saved trips"
+  on public.saved_trips for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own saved trips"
+  on public.saved_trips for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete own saved trips"
+  on public.saved_trips for delete
+  using (auth.uid() = user_id);
+
+create index if not exists idx_saved_trips_user_id
+  on public.saved_trips(user_id);

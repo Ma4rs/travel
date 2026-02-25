@@ -291,7 +291,7 @@ export default function PlanPage() {
                   )}
 
                   <Link
-                    href={`/route?from=${encodeURIComponent(startLocation)}&to=${encodeURIComponent(trip.destination)}`}
+                    href={`/route?from=${encodeURIComponent(startLocation)}&to=${encodeURIComponent(trip.destination)}${days > 1 ? `&days=${days}` : ""}`}
                     className="inline-flex items-center gap-1 rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
                   >
                     Explore this route with Side Quests →

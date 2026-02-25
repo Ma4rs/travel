@@ -35,6 +35,9 @@ interface TripState {
   setIsLoadingQuests: (loading: boolean) => void;
   completeQuest: (questId: string, photoUrl: string) => void;
   completeMainQuest: (questId: string, photoUrl: string) => void;
+  saveTrip: (title: string) => string;
+  deleteTrip: (tripId: string) => void;
+  loadTrip: (tripId: string) => void;
   syncWithCloud: () => Promise<void>;
   reset: () => void;
 }
@@ -103,6 +106,39 @@ export const useTripStore = create<TripState>()(
 
         syncQuestCompletion(questId, photoUrl).catch(() => {
           // Offline — persisted locally, will sync on next load
+        });
+      },
+      saveTrip: (title: string) => {
+        const state = get();
+        if (!state.origin || !state.destination) return "";
+        const id = crypto.randomUUID();
+        const trip: Trip = {
+          id,
+          title,
+          origin: state.origin,
+          destination: state.destination,
+          waypoints: [],
+          quests: state.quests,
+          routeGeometry: state.routeGeometry,
+          createdAt: new Date().toISOString(),
+        };
+        set({ savedTrips: [...state.savedTrips, trip] });
+        return id;
+      },
+      deleteTrip: (tripId: string) => {
+        set((state) => ({
+          savedTrips: state.savedTrips.filter((t) => t.id !== tripId),
+        }));
+      },
+      loadTrip: (tripId: string) => {
+        const state = get();
+        const trip = state.savedTrips.find((t) => t.id === tripId);
+        if (!trip) return;
+        set({
+          origin: trip.origin,
+          destination: trip.destination,
+          routeGeometry: trip.routeGeometry ?? [],
+          quests: trip.quests,
         });
       },
       syncWithCloud: async () => {

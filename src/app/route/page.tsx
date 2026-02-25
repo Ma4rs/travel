@@ -10,7 +10,9 @@ import QuestCard from "@/components/quest/QuestCard";
 import QuestDetail from "@/components/quest/QuestDetail";
 import UserMenu from "@/components/UserMenu";
 import { useTripStore } from "@/stores/trip-store";
-import type { Quest, RoutePoint } from "@/types";
+import type { Quest, RoutePoint, WeatherData, QuestCategory } from "@/types";
+import { fetchWeatherForLocations } from "@/lib/weather";
+import { buildItinerary } from "@/lib/itinerary";
 
 const COOLDOWN_SECONDS = 15;
 const MAX_WAYPOINTS = 25;
@@ -89,6 +91,7 @@ export default function RoutePage() {
     setMaxDetourMinutes,
     setIsLoadingQuests,
     completeQuest,
+    saveTrip,
   } = useTripStore();
 
   const [error, setError] = useState<string | null>(null);
@@ -110,6 +113,20 @@ export default function RoutePage() {
   const [needsRecalc, setNeedsRecalc] = useState(false);
   const cooldownInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Save/share state
+  const [showSaveInput, setShowSaveInput] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [saveToast, setSaveToast] = useState<string | null>(null);
+  const [shareToast, setShareToast] = useState<string | null>(null);
+
+  // Weather state
+  const [weatherMap, setWeatherMap] = useState<Record<string, WeatherData>>({});
+  const [tripDate, setTripDate] = useState("");
+  const [isLoadingWeather, setIsLoadingWeather] = useState(false);
+
+  // Multi-day state
+  const [tripDays, setTripDays] = useState(1);
+
   const originRef = useRef(origin);
   const destinationRef = useRef(destination);
   originRef.current = origin;
@@ -118,6 +135,21 @@ export default function RoutePage() {
   useEffect(() => {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
+    const sharedInterests = searchParams.get("interests");
+    const daysParam = searchParams.get("days");
+
+    if (sharedInterests && interests.length === 0) {
+      const cats = sharedInterests.split(",").filter(Boolean) as QuestCategory[];
+      cats.forEach((cat) => {
+        if (!interests.includes(cat)) toggleInterest(cat);
+      });
+    }
+
+    if (daysParam) {
+      const d = parseInt(daysParam, 10);
+      if (d >= 1 && d <= 7) setTripDays(d);
+    }
+
     if (!from && !to) return;
 
     async function geocodeParams() {
@@ -141,6 +173,7 @@ export default function RoutePage() {
       }
     }
     geocodeParams();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, setOrigin, setDestination]);
 
   const startCooldown = useCallback(() => {
@@ -322,6 +355,55 @@ export default function RoutePage() {
     }
   }
 
+  // Fetch weather when quests change or trip date changes
+  useEffect(() => {
+    if (quests.length === 0) return;
+    let cancelled = false;
+    setIsLoadingWeather(true);
+
+    const coords = quests.map((q) => ({ lat: q.lat, lng: q.lng, id: q.id }));
+    fetchWeatherForLocations(coords, tripDate || undefined).then((data) => {
+      if (!cancelled) {
+        setWeatherMap(data);
+        setIsLoadingWeather(false);
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [quests, tripDate]);
+
+  function handleSaveTrip() {
+    const name = saveName.trim() || `${origin?.name ?? "?"} → ${destination?.name ?? "?"}`;
+    saveTrip(name);
+    setShowSaveInput(false);
+    setSaveName("");
+    setSaveToast("Trip saved!");
+    setTimeout(() => setSaveToast(null), 3000);
+  }
+
+  function handleShareRoute() {
+    if (!origin || !destination) return;
+    const params = new URLSearchParams();
+    params.set("from", origin.name);
+    params.set("to", destination.name);
+    if (interests.length > 0) params.set("interests", interests.join(","));
+    const url = `${window.location.origin}/route?${params.toString()}`;
+
+    if (navigator.share) {
+      navigator.share({ title: "TravelGuide Route", text: `Check out this route: ${origin.name} → ${destination.name}`, url }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url).then(() => {
+        setShareToast("Link copied!");
+        setTimeout(() => setShareToast(null), 3000);
+      });
+    }
+  }
+
+  // Build itinerary when days > 1
+  const itinerary = tripDays > 1 && origin && destination && quests.length > 0
+    ? buildItinerary(quests, origin, destination, tripDays, recalcRoute?.geometry ?? routeGeometry)
+    : null;
+
   // Sort quests: selected first (in route order if recalculated), then unselected
   const displayGeometry = recalcRoute ? recalcRoute.geometry : routeGeometry;
   const selectedSorted = sortQuestsByRoute(
@@ -418,6 +500,34 @@ export default function RoutePage() {
                 className="w-full accent-primary"
               />
             </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-muted">
+                Trip date (optional)
+              </label>
+              <input
+                type="date"
+                value={tripDate}
+                onChange={(e) => setTripDate(e.target.value)}
+                min={new Date().toISOString().split("T")[0]}
+                className="w-full rounded-xl border border-border bg-background py-2.5 px-4 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            {hasSearched && quests.length > 0 && (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-muted">
+                  Trip duration: {tripDays} {tripDays === 1 ? "day" : "days"}
+                </label>
+                <input
+                  type="range"
+                  min={1}
+                  max={7}
+                  step={1}
+                  value={tripDays}
+                  onChange={(e) => setTripDays(Number(e.target.value))}
+                  className="w-full accent-primary"
+                />
+              </div>
+            )}
             <button
               onClick={handleFindQuests}
               disabled={isButtonDisabled}
@@ -481,18 +591,134 @@ export default function RoutePage() {
                 </div>
               )}
 
-              <div className="space-y-2">
-                {displayQuests.map((quest) => (
-                  <QuestCard
-                    key={quest.id}
-                    quest={quest}
-                    compact
-                    selected={selectedQuestIds.has(quest.id)}
-                    onToggleSelect={toggleQuestSelection}
-                    onClick={() => setSelectedQuest(quest)}
-                  />
-                ))}
+              {itinerary && tripDays > 1 ? (
+                <div className="space-y-4">
+                  {itinerary.map((dayPlan) => (
+                    <div key={dayPlan.day}>
+                      <div className="mb-2 flex items-center justify-between">
+                        <h4 className="text-sm font-semibold text-foreground">
+                          Day {dayPlan.day}
+                        </h4>
+                        <span className="text-xs text-muted">
+                          ~{dayPlan.distanceKm} km · {Math.floor(dayPlan.durationMinutes / 60)}h {dayPlan.durationMinutes % 60}min
+                        </span>
+                      </div>
+                      {dayPlan.quests.length === 0 ? (
+                        <p className="py-2 text-xs text-muted italic">Travel day — no quests in this segment</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {dayPlan.quests.map((quest) => (
+                            <QuestCard
+                              key={quest.id}
+                              quest={quest}
+                              compact
+                              selected={selectedQuestIds.has(quest.id)}
+                              onToggleSelect={toggleQuestSelection}
+                              onClick={() => setSelectedQuest(quest)}
+                              weather={weatherMap[quest.id]}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {dayPlan.overnightLocation && (
+                        <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-accent/10 px-3 py-1.5 text-xs text-accent">
+                          <span>🏨</span>
+                          <span>Overnight near {dayPlan.overnightLocation.name}</span>
+                        </div>
+                      )}
+                      {dayPlan.day < tripDays && (
+                        <a
+                          href={buildGoogleMapsUrl(
+                            dayPlan.day === 1 ? origin! : { lat: itinerary[dayPlan.day - 2].overnightLocation?.lat ?? origin!.lat, lng: itinerary[dayPlan.day - 2].overnightLocation?.lng ?? origin!.lng, name: "" },
+                            dayPlan.overnightLocation ?? destination!,
+                            dayPlan.quests.filter((q) => selectedQuestIds.has(q.id))
+                          )}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/30 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/5"
+                        >
+                          Navigate Day {dayPlan.day} →
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                  {/* Navigate last day */}
+                  {itinerary.length > 0 && (
+                    <a
+                      href={buildGoogleMapsUrl(
+                        itinerary.length > 1
+                          ? { lat: itinerary[itinerary.length - 2].overnightLocation?.lat ?? origin!.lat, lng: itinerary[itinerary.length - 2].overnightLocation?.lng ?? origin!.lng, name: "" }
+                          : origin!,
+                        destination!,
+                        itinerary[itinerary.length - 1].quests.filter((q) => selectedQuestIds.has(q.id))
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/30 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/5"
+                    >
+                      Navigate Day {itinerary.length} →
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {displayQuests.map((quest) => (
+                    <QuestCard
+                      key={quest.id}
+                      quest={quest}
+                      compact
+                      selected={selectedQuestIds.has(quest.id)}
+                      onToggleSelect={toggleQuestSelection}
+                      onClick={() => setSelectedQuest(quest)}
+                      weather={weatherMap[quest.id]}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Save / Share buttons */}
+          {quests.length > 0 && origin && destination && (
+            <div className="border-t border-border p-4 space-y-2">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowSaveInput(!showSaveInput)}
+                  className="flex-1 rounded-xl border border-border py-2 text-sm font-medium text-foreground transition-colors hover:bg-card-hover"
+                >
+                  💾 Save Trip
+                </button>
+                <button
+                  onClick={handleShareRoute}
+                  className="flex-1 rounded-xl border border-border py-2 text-sm font-medium text-foreground transition-colors hover:bg-card-hover"
+                >
+                  🔗 Share
+                </button>
               </div>
+              {showSaveInput && (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={saveName}
+                    onChange={(e) => setSaveName(e.target.value)}
+                    placeholder={`${origin.name} → ${destination.name}`}
+                    onKeyDown={(e) => e.key === "Enter" && handleSaveTrip()}
+                    className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted/50 focus:border-primary focus:outline-none"
+                  />
+                  <button
+                    onClick={handleSaveTrip}
+                    className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+                  >
+                    Save
+                  </button>
+                </div>
+              )}
+              {saveToast && (
+                <p className="text-center text-xs font-medium text-secondary">{saveToast}</p>
+              )}
+              {shareToast && (
+                <p className="text-center text-xs font-medium text-secondary">{shareToast}</p>
+              )}
             </div>
           )}
 

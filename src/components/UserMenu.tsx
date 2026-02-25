@@ -89,10 +89,18 @@ export default function UserMenu() {
             <p className="truncate text-sm font-medium">{email}</p>
           </div>
           <Link
-            href="/album"
+            href="/trips"
             role="menuitem"
             onClick={() => setIsOpen(false)}
             className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-muted transition-colors hover:bg-card-hover hover:text-foreground"
+          >
+            <span aria-hidden="true">🗺️</span> My Trips
+          </Link>
+          <Link
+            href="/album"
+            role="menuitem"
+            onClick={() => setIsOpen(false)}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-muted transition-colors hover:bg-card-hover hover:text-foreground"
           >
             <span aria-hidden="true">📸</span> Memory Album
           </Link>

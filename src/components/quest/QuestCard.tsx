@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import type { Quest } from "@/types";
+import type { Quest, WeatherData } from "@/types";
 import { QUEST_CATEGORIES } from "@/types";
 
 function SafeImage({ src, alt, width, height, className }: {
@@ -21,6 +21,7 @@ interface QuestCardProps {
   compact?: boolean;
   selected?: boolean;
   onToggleSelect?: (questId: string) => void;
+  weather?: WeatherData;
 }
 
 export default function QuestCard({
@@ -29,6 +30,7 @@ export default function QuestCard({
   compact = false,
   selected,
   onToggleSelect,
+  weather,
 }: QuestCardProps) {
   const cat = QUEST_CATEGORIES[quest.category];
   const isSelectable = selected !== undefined;
@@ -86,6 +88,12 @@ export default function QuestCard({
               <span>+{quest.detourMinutes} min</span>
               <span>·</span>
               <span>{quest.xp} XP</span>
+              {weather && (
+                <>
+                  <span>·</span>
+                  <span title={weather.label}>{weather.icon} {weather.tempC}°</span>
+                </>
+              )}
             </div>
           </div>
           {quest.completed && (
