@@ -20,6 +20,7 @@ interface DynamicMapProps {
   center?: [number, number];
   zoom?: number;
   routeGeometry?: [number, number][];
+  originalRouteGeometry?: [number, number][];
   quests?: Quest[];
   completedQuests?: Record<string, CompletedQuestData>;
   selectedQuestIds?: Set<string>;

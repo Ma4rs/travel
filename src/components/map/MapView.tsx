@@ -10,6 +10,7 @@ interface MapViewProps {
   center?: [number, number];
   zoom?: number;
   routeGeometry?: [number, number][];
+  originalRouteGeometry?: [number, number][];
   quests?: Quest[];
   completedQuests?: Record<string, CompletedQuestData>;
   selectedQuestIds?: Set<string>;
@@ -20,6 +21,7 @@ export default function MapView({
   center = [50.1109, 8.6821],
   zoom = 6,
   routeGeometry = [],
+  originalRouteGeometry,
   quests = [],
   completedQuests,
   selectedQuestIds,
@@ -28,6 +30,7 @@ export default function MapView({
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const routeLayerRef = useRef<L.Polyline | null>(null);
+  const originalRouteLayerRef = useRef<L.Polyline | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
   const initialCenter = useRef(center);
   const initialZoom = useRef(zoom);
@@ -63,8 +66,22 @@ export default function MapView({
   useEffect(() => {
     if (!mapRef.current) return;
 
+    if (originalRouteLayerRef.current) {
+      originalRouteLayerRef.current.remove();
+      originalRouteLayerRef.current = null;
+    }
     if (routeLayerRef.current) {
       routeLayerRef.current.remove();
+      routeLayerRef.current = null;
+    }
+
+    if (originalRouteGeometry && originalRouteGeometry.length > 0) {
+      originalRouteLayerRef.current = L.polyline(originalRouteGeometry, {
+        color: "#9CA3AF",
+        weight: 3,
+        opacity: 0.4,
+        dashArray: "8,8",
+      }).addTo(mapRef.current);
     }
 
     if (routeGeometry.length > 0) {
@@ -78,7 +95,7 @@ export default function MapView({
         padding: [50, 50],
       });
     }
-  }, [routeGeometry]);
+  }, [routeGeometry, originalRouteGeometry]);
 
   useEffect(() => {
     if (!mapRef.current || !markersRef.current) return;

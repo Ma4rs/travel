@@ -13,24 +13,17 @@ import { useTripStore } from "@/stores/trip-store";
 import type { Quest, RoutePoint } from "@/types";
 
 const COOLDOWN_SECONDS = 15;
+const MAX_WAYPOINTS = 25;
 
 function buildGoogleMapsUrl(
   origin: RoutePoint,
   destination: RoutePoint,
-  quests: Quest[],
-  routeGeometry: [number, number][]
+  quests: Quest[]
 ): string {
-  // Sort quests by position along the route for logical driving order
-  const sorted = [...quests].sort((a, b) => {
-    const aIdx = findClosestRouteIndex(a.lat, a.lng, routeGeometry);
-    const bIdx = findClosestRouteIndex(b.lat, b.lng, routeGeometry);
-    return aIdx - bIdx;
-  });
-
   const base = "https://www.google.com/maps/dir/";
   const waypoints = [
     `${origin.lat},${origin.lng}`,
-    ...sorted.map((q) => `${q.lat},${q.lng}`),
+    ...quests.map((q) => `${q.lat},${q.lng}`),
     `${destination.lat},${destination.lng}`,
   ];
   return base + waypoints.join("/");
@@ -51,6 +44,28 @@ function findClosestRouteIndex(
     }
   }
   return minIdx;
+}
+
+function sortQuestsByRoute(
+  questsToSort: Quest[],
+  geometry: [number, number][]
+): Quest[] {
+  return [...questsToSort].sort((a, b) => {
+    const aIdx = findClosestRouteIndex(a.lat, a.lng, geometry);
+    const bIdx = findClosestRouteIndex(b.lat, b.lng, geometry);
+    return aIdx - bIdx;
+  });
+}
+
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.round((seconds % 3600) / 60);
+  if (hours === 0) return `${mins} min`;
+  return `${hours}h ${mins}min`;
+}
+
+function formatDistance(meters: number): string {
+  return `${Math.round(meters / 1000)} km`;
 }
 
 export default function RoutePage() {
@@ -84,6 +99,15 @@ export default function RoutePage() {
   const [aiError, setAiError] = useState<string | null>(null);
   const [selectedQuestIds, setSelectedQuestIds] = useState<Set<string>>(new Set());
   const [showSelectAllWarning, setShowSelectAllWarning] = useState(false);
+  const [selectionLimitMsg, setSelectionLimitMsg] = useState<string | null>(null);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+  const [recalcRoute, setRecalcRoute] = useState<{
+    geometry: [number, number][];
+    distance: number;
+    duration: number;
+  } | null>(null);
+  const [originalGeometry, setOriginalGeometry] = useState<[number, number][]>([]);
+  const [needsRecalc, setNeedsRecalc] = useState(false);
   const cooldownInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const originRef = useRef(origin);
@@ -113,7 +137,7 @@ export default function RoutePage() {
           }
         }
       } catch {
-        // URL params are a convenience; silently ignore geocoding failures
+        // silently ignore
       }
     }
     geocodeParams();
@@ -142,21 +166,71 @@ export default function RoutePage() {
   function toggleQuestSelection(questId: string) {
     setSelectedQuestIds((prev) => {
       const next = new Set(prev);
-      if (next.has(questId)) next.delete(questId);
-      else next.add(questId);
+      if (next.has(questId)) {
+        next.delete(questId);
+      } else {
+        if (next.size >= MAX_WAYPOINTS) {
+          setSelectionLimitMsg(`Maximum ${MAX_WAYPOINTS} stops per route.`);
+          return prev;
+        }
+        next.add(questId);
+      }
       return next;
     });
     setShowSelectAllWarning(false);
+    setSelectionLimitMsg(null);
+    setNeedsRecalc(true);
   }
 
   function handleSelectAll() {
-    setSelectedQuestIds(new Set(quests.map((q) => q.id)));
+    const limited = quests.slice(0, MAX_WAYPOINTS);
+    setSelectedQuestIds(new Set(limited.map((q) => q.id)));
     setShowSelectAllWarning(true);
+    setNeedsRecalc(true);
+    if (quests.length > MAX_WAYPOINTS) {
+      setSelectionLimitMsg(`Only the first ${MAX_WAYPOINTS} quests were selected (maximum).`);
+    }
   }
 
   function handleClearAll() {
     setSelectedQuestIds(new Set());
     setShowSelectAllWarning(false);
+    setSelectionLimitMsg(null);
+    setRecalcRoute(null);
+    setNeedsRecalc(false);
+  }
+
+  async function handleRecalculateRoute() {
+    if (!origin || !destination || selectedQuestIds.size === 0) return;
+
+    setIsRecalculating(true);
+
+    const selected = quests.filter((q) => selectedQuestIds.has(q.id));
+    const sorted = sortQuestsByRoute(selected, routeGeometry);
+
+    try {
+      const res = await fetch("/api/calc-route", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          origin: { lat: origin.lat, lng: origin.lng },
+          destination: { lat: destination.lat, lng: destination.lng },
+          waypoints: sorted.map((q) => ({ lat: q.lat, lng: q.lng })),
+        }),
+      });
+
+      if (!res.ok) throw new Error("Route calculation failed");
+
+      const data = await res.json();
+      setOriginalGeometry(routeGeometry);
+      setRouteGeometry(data.geometry);
+      setRecalcRoute(data);
+      setNeedsRecalc(false);
+    } catch {
+      setError("Failed to recalculate route. Please try again.");
+    } finally {
+      setIsRecalculating(false);
+    }
   }
 
   async function handleFindQuests() {
@@ -166,6 +240,10 @@ export default function RoutePage() {
     setIsLoadingQuests(true);
     setSelectedQuestIds(new Set());
     setShowSelectAllWarning(false);
+    setSelectionLimitMsg(null);
+    setRecalcRoute(null);
+    setOriginalGeometry([]);
+    setNeedsRecalc(false);
 
     try {
       const res = await fetch("/api/quests", {
@@ -244,8 +322,16 @@ export default function RoutePage() {
     }
   }
 
-  const selectedQuests = quests.filter((q) => selectedQuestIds.has(q.id));
-  const selectedCount = selectedQuests.length;
+  // Sort quests: selected first (in route order if recalculated), then unselected
+  const displayGeometry = recalcRoute ? recalcRoute.geometry : routeGeometry;
+  const selectedSorted = sortQuestsByRoute(
+    quests.filter((q) => selectedQuestIds.has(q.id)),
+    displayGeometry
+  );
+  const unselected = quests.filter((q) => !selectedQuestIds.has(q.id));
+  const displayQuests = [...selectedSorted, ...unselected];
+
+  const selectedCount = selectedSorted.length;
 
   const totalXP = quests.reduce((sum, q) => sum + q.xp, 0);
   const completedXP = quests
@@ -295,9 +381,8 @@ export default function RoutePage() {
         <UserMenu />
       </header>
 
-      {/* Desktop: side-by-side */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar — hidden on mobile unless list tab active */}
+        {/* Sidebar */}
         <aside
           className={`${
             mobileTab === "list" ? "flex" : "hidden"
@@ -318,9 +403,7 @@ export default function RoutePage() {
               onSelect={setDestination}
               icon="🔴"
             />
-
             <InterestFilter selected={interests} onToggle={toggleInterest} />
-
             <div>
               <label className="mb-1.5 block text-sm font-medium text-muted">
                 Max detour: {maxDetourMinutes} min
@@ -335,7 +418,6 @@ export default function RoutePage() {
                 className="w-full accent-primary"
               />
             </div>
-
             <button
               onClick={handleFindQuests}
               disabled={isButtonDisabled}
@@ -343,7 +425,6 @@ export default function RoutePage() {
             >
               {buttonLabel}
             </button>
-
             {error && (
               <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-400">
                 {error}
@@ -383,8 +464,25 @@ export default function RoutePage() {
                 </p>
               )}
 
+              {selectionLimitMsg && (
+                <p className="mb-3 rounded-lg bg-primary/10 p-2.5 text-xs text-primary">
+                  {selectionLimitMsg}
+                </p>
+              )}
+
+              {/* Route info after recalculation */}
+              {recalcRoute && (
+                <div className="mb-3 flex items-center gap-3 rounded-lg bg-secondary/10 p-2.5 text-xs font-medium text-secondary">
+                  <span>{formatDistance(recalcRoute.distance)}</span>
+                  <span>·</span>
+                  <span>~{formatDuration(recalcRoute.duration)}</span>
+                  <span>·</span>
+                  <span>{selectedCount} {selectedCount === 1 ? "stop" : "stops"}</span>
+                </div>
+              )}
+
               <div className="space-y-2">
-                {quests.map((quest) => (
+                {displayQuests.map((quest) => (
                   <QuestCard
                     key={quest.id}
                     quest={quest}
@@ -398,11 +496,27 @@ export default function RoutePage() {
             </div>
           )}
 
-          {/* Navigate Full Route */}
+          {/* Recalculate + Navigate buttons */}
           {selectedCount > 0 && origin && destination && (
-            <div className="border-t border-border p-4">
+            <div className="border-t border-border p-4 space-y-2">
+              {needsRecalc && (
+                <button
+                  onClick={handleRecalculateRoute}
+                  disabled={isRecalculating}
+                  className="w-full rounded-xl border border-secondary py-2.5 text-sm font-medium text-secondary transition-colors hover:bg-secondary/10 disabled:opacity-50"
+                >
+                  {isRecalculating ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-secondary/30 border-t-secondary" />
+                      Recalculating...
+                    </span>
+                  ) : (
+                    "Recalculate Route"
+                  )}
+                </button>
+              )}
               <a
-                href={buildGoogleMapsUrl(origin, destination, selectedQuests, routeGeometry)}
+                href={buildGoogleMapsUrl(origin, destination, selectedSorted)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 font-medium text-white transition-colors hover:bg-primary-hover"
@@ -447,14 +561,15 @@ export default function RoutePage() {
           )}
         </aside>
 
-        {/* Map — hidden on mobile unless map tab active */}
+        {/* Map */}
         <main
           className={`${
             mobileTab === "map" ? "flex" : "hidden"
           } sm:flex flex-1 p-2 sm:p-4`}
         >
           <DynamicMap
-            routeGeometry={routeGeometry}
+            routeGeometry={recalcRoute ? recalcRoute.geometry : routeGeometry}
+            originalRouteGeometry={recalcRoute ? originalGeometry : undefined}
             quests={quests}
             completedQuests={completedQuests}
             selectedQuestIds={selectedQuestIds}
@@ -469,11 +584,8 @@ export default function RoutePage() {
           onClick={() => setMobileTab("list")}
           role="tab"
           aria-selected={mobileTab === "list"}
-          aria-controls="panel-list"
           className={`flex-1 py-3 text-center text-sm font-medium transition-colors ${
-            mobileTab === "list"
-              ? "text-primary bg-primary/5"
-              : "text-muted"
+            mobileTab === "list" ? "text-primary bg-primary/5" : "text-muted"
           }`}
         >
           Quests
@@ -487,11 +599,8 @@ export default function RoutePage() {
           onClick={() => setMobileTab("map")}
           role="tab"
           aria-selected={mobileTab === "map"}
-          aria-controls="panel-map"
           className={`flex-1 py-3 text-center text-sm font-medium transition-colors ${
-            mobileTab === "map"
-              ? "text-primary bg-primary/5"
-              : "text-muted"
+            mobileTab === "map" ? "text-primary bg-primary/5" : "text-muted"
           }`}
         >
           Map
