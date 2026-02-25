@@ -1,7 +1,5 @@
 import { REGIONS } from "@/data/regions";
-import type { QuestCategory } from "@/types";
-
-export type FuelType = "petrol" | "diesel";
+import type { QuestCategory, TransportMode, FuelType } from "@/types";
 
 export interface TripSuggestion {
   title: string;
@@ -15,12 +13,14 @@ export interface TripSuggestion {
   drivingDistanceKm: number;
   highlights: string[];
   center: [number, number];
+  transportMode: TransportMode;
   hasDeutschlandticket: boolean;
   fuelType: FuelType;
 }
 
-const FUEL_CONSUMPTION: Record<FuelType, number> = { petrol: 7.0, diesel: 5.5 };
-const FUEL_PRICE: Record<FuelType, number> = { petrol: 1.75, diesel: 1.65 };
+const FUEL_CONSUMPTION: Record<FuelType, number> = { petrol: 7.0, diesel: 5.5, electric: 20.0 };
+const FUEL_PRICE: Record<FuelType, number> = { petrol: 1.75, diesel: 1.65, electric: 0.35 };
+const TRAIN_COST_PER_KM = 0.15;
 const ACCOMMODATION_PER_NIGHT = 60;
 
 async function getDrivingDistanceKm(
@@ -58,11 +58,14 @@ export async function planTrips(
   budget: number,
   days: number,
   interests: QuestCategory[],
+  transportMode: TransportMode,
   hasDeutschlandticket: boolean,
   fuelType: FuelType
 ): Promise<TripSuggestion[]> {
   const fuelCostPerKm =
-    (FUEL_CONSUMPTION[fuelType] / 100) * FUEL_PRICE[fuelType];
+    transportMode === "train"
+      ? TRAIN_COST_PER_KM
+      : (FUEL_CONSUMPTION[fuelType] / 100) * FUEL_PRICE[fuelType];
 
   const regionsWithQuests = REGIONS.map((region) => {
     const matchingQuests =
@@ -93,9 +96,10 @@ export async function planTrips(
     const drivingDistanceKm = Math.round(distances[i]);
     const roundTripKm = drivingDistanceKm * 2;
 
-    const transportCost = hasDeutschlandticket
-      ? 0
-      : Math.round(roundTripKm * fuelCostPerKm);
+    const transportCost =
+      transportMode === "train" && hasDeutschlandticket
+        ? 0
+        : Math.round(roundTripKm * fuelCostPerKm);
     const accommodationCost = Math.max(0, days - 1) * ACCOMMODATION_PER_NIGHT;
     const estimatedCost = transportCost + accommodationCost;
 
@@ -120,6 +124,7 @@ export async function planTrips(
       drivingDistanceKm,
       highlights: r.topQuests.map((q) => q.title),
       center: r.region.center,
+      transportMode,
       hasDeutschlandticket,
       fuelType,
       score:

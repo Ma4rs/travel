@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { geocode } from "@/lib/geocode";
 import { planTrips } from "@/lib/trip-planner";
-import type { QuestCategory } from "@/types";
-import type { FuelType } from "@/lib/trip-planner";
+import type { QuestCategory, TransportMode, FuelType } from "@/types";
 
 const VALID_CATEGORIES: QuestCategory[] = [
   "hidden_gem", "scenic", "food", "history",
@@ -12,7 +11,7 @@ const VALID_CATEGORIES: QuestCategory[] = [
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { startLocation, budget, days, interests, hasDeutschlandticket, fuelType } = body;
+    const { startLocation, budget, days, interests, transportMode, hasDeutschlandticket, fuelType } = body;
 
     if (typeof startLocation !== "string" || !startLocation.trim()) {
       return NextResponse.json(
@@ -40,8 +39,11 @@ export async function POST(request: NextRequest) {
       ? interests.filter((i: string) => VALID_CATEGORIES.includes(i as QuestCategory))
       : [];
 
+    const validTransportMode: TransportMode =
+      transportMode === "train" ? "train" : "car";
+
     const validFuelType: FuelType =
-      fuelType === "diesel" ? "diesel" : "petrol";
+      fuelType === "diesel" ? "diesel" : fuelType === "electric" ? "electric" : "petrol";
 
     const validHasDeutschlandticket =
       typeof hasDeutschlandticket === "boolean" ? hasDeutschlandticket : false;
@@ -63,6 +65,7 @@ export async function POST(request: NextRequest) {
       validBudget,
       validDays,
       validInterests as QuestCategory[],
+      validTransportMode,
       validHasDeutschlandticket,
       validFuelType
     );

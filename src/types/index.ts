@@ -116,6 +116,46 @@ export interface DayPlan {
   durationMinutes: number;
 }
 
+export type TransportMode = "car" | "train";
+export type FuelType = "petrol" | "diesel" | "electric";
+
+export interface Hotel {
+  name: string;
+  lat: number;
+  lng: number;
+  type: "hotel" | "hostel" | "guest_house";
+  stars?: number;
+  estimatedPrice: number;
+}
+
+export interface ItineraryDay {
+  day: number;
+  label: string;
+  quests: Quest[];
+  hotel?: Hotel;
+  distanceKm: number;
+  durationMinutes: number;
+  isReturnDay: boolean;
+}
+
+export interface PlannedTrip {
+  id: string;
+  title: string;
+  origin: RoutePoint;
+  destination: RoutePoint;
+  days: number;
+  itinerary: ItineraryDay[];
+  outboundGeometry: [number, number][];
+  returnGeometry: [number, number][];
+  totalDistance: number;
+  totalDuration: number;
+  estimatedCost: number;
+  transportCost: number;
+  accommodationCost: number;
+  transportMode: TransportMode;
+  isRoundTrip: boolean;
+}
+
 export const QUEST_CATEGORIES: Record<
   QuestCategory,
   { label: string; icon: string; color: string }

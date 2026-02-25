@@ -121,7 +121,6 @@ export default function RoutePage() {
 
   // Weather state
   const [weatherMap, setWeatherMap] = useState<Record<string, WeatherData>>({});
-  const [tripDate, setTripDate] = useState("");
   const [isLoadingWeather, setIsLoadingWeather] = useState(false);
 
   // Multi-day state
@@ -362,7 +361,7 @@ export default function RoutePage() {
     setIsLoadingWeather(true);
 
     const coords = quests.map((q) => ({ lat: q.lat, lng: q.lng, id: q.id }));
-    fetchWeatherForLocations(coords, tripDate || undefined).then((data) => {
+    fetchWeatherForLocations(coords).then((data) => {
       if (!cancelled) {
         setWeatherMap(data);
         setIsLoadingWeather(false);
@@ -370,7 +369,7 @@ export default function RoutePage() {
     });
 
     return () => { cancelled = true; };
-  }, [quests, tripDate]);
+  }, [quests]);
 
   function handleSaveTrip() {
     const name = saveName.trim() || `${origin?.name ?? "?"} → ${destination?.name ?? "?"}`;
@@ -498,18 +497,6 @@ export default function RoutePage() {
                 value={maxDetourMinutes}
                 onChange={(e) => setMaxDetourMinutes(Number(e.target.value))}
                 className="w-full accent-primary"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-muted">
-                Trip date (optional)
-              </label>
-              <input
-                type="date"
-                value={tripDate}
-                onChange={(e) => setTripDate(e.target.value)}
-                min={new Date().toISOString().split("T")[0]}
-                className="w-full rounded-xl border border-border bg-background py-2.5 px-4 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
             {hasSearched && quests.length > 0 && (
