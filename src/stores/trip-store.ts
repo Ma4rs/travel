@@ -7,6 +7,7 @@ import type {
   QuestCategory,
   CompletedQuestData,
   PlannedTrip,
+  ItineraryDay,
 } from "@/types";
 import { syncQuestCompletion, mergeLocalWithRemote } from "@/lib/sync";
 
@@ -27,6 +28,7 @@ interface TripState {
 
   completedQuestIds: () => string[];
   setPlannedTrip: (trip: PlannedTrip | null) => void;
+  updatePlannedItinerary: (itinerary: ItineraryDay[]) => void;
   setOrigin: (point: RoutePoint | null) => void;
   setDestination: (point: RoutePoint | null) => void;
   setRouteGeometry: (geometry: [number, number][]) => void;
@@ -64,6 +66,11 @@ export const useTripStore = create<TripState>()(
 
       completedQuestIds: () => Object.keys(get().completedQuests),
       setPlannedTrip: (trip) => set({ plannedTrip: trip }),
+      updatePlannedItinerary: (itinerary) => {
+        const current = get().plannedTrip;
+        if (!current) return;
+        set({ plannedTrip: { ...current, itinerary } });
+      },
       setOrigin: (point) => set({ origin: point }),
       setDestination: (point) => set({ destination: point }),
       setRouteGeometry: (geometry) => set({ routeGeometry: geometry }),

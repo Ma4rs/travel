@@ -1,30 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import DynamicMap from "@/components/map/DynamicMap";
 import UserMenu from "@/components/UserMenu";
 import { useTripStore } from "@/stores/trip-store";
-import type { Quest } from "@/types";
+import type { Quest, ItineraryDay } from "@/types";
 import { QUEST_CATEGORIES } from "@/types";
 import { formatDurationMinutes, buildGoogleMapsUrl } from "@/lib/utils";
 
 export default function TripResultPage() {
-  const { plannedTrip: trip, saveTrip, setPlannedTrip } = useTripStore();
+  const { plannedTrip: trip, saveTrip, updatePlannedItinerary } = useTripStore();
   const [expandedDay, setExpandedDay] = useState<number | null>(1);
   const [mobileTab, setMobileTab] = useState<"list" | "map">("list");
   const [shareToast, setShareToast] = useState<string | null>(null);
   const [saveToast, setSaveToast] = useState<string | null>(null);
+  const [dragOverDay, setDragOverDay] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const dragDataRef = useRef<{ questId: string; fromDay: number } | null>(null);
 
   function handleSaveTrip() {
     if (!trip) return;
-    // Temporarily set origin/destination so saveTrip can snapshot
     const store = useTripStore.getState();
-    const prevOrigin = store.origin;
-    const prevDest = store.destination;
-    const prevGeometry = store.routeGeometry;
-    const prevQuests = store.quests;
-
+    const prev = { origin: store.origin, destination: store.destination, routeGeometry: store.routeGeometry, quests: store.quests };
     useTripStore.setState({
       origin: trip.origin,
       destination: trip.destination,
@@ -32,15 +30,107 @@ export default function TripResultPage() {
       quests: trip.itinerary.flatMap((d) => d.quests),
     });
     saveTrip(trip.title);
-    useTripStore.setState({
-      origin: prevOrigin,
-      destination: prevDest,
-      routeGeometry: prevGeometry,
-      quests: prevQuests,
+    useTripStore.setState(prev);
+    setSaveToast("Trip saved!");
+    setTimeout(() => setSaveToast(null), 3000);
+  }
+
+  const removeQuest = useCallback((dayNum: number, questId: string) => {
+    if (!trip) return;
+    const newItinerary = trip.itinerary.map((day) =>
+      day.day === dayNum
+        ? { ...day, quests: day.quests.filter((q) => q.id !== questId) }
+        : day
+    );
+    updatePlannedItinerary(newItinerary);
+  }, [trip, updatePlannedItinerary]);
+
+  const moveQuest = useCallback((fromDay: number, toDay: number, questId: string, insertIdx?: number) => {
+    if (!trip || fromDay === toDay && insertIdx === undefined) return;
+    const itinerary = trip.itinerary;
+
+    const sourceDayData = itinerary.find((d) => d.day === fromDay);
+    if (!sourceDayData) return;
+    const quest = sourceDayData.quests.find((q) => q.id === questId);
+    if (!quest) return;
+
+    const newItinerary: ItineraryDay[] = itinerary.map((day) => {
+      if (day.day === fromDay && day.day === toDay) {
+        const without = day.quests.filter((q) => q.id !== questId);
+        const idx = insertIdx !== undefined ? Math.min(insertIdx, without.length) : without.length;
+        const reordered = [...without];
+        reordered.splice(idx, 0, quest);
+        return { ...day, quests: reordered };
+      }
+      if (day.day === fromDay) {
+        return { ...day, quests: day.quests.filter((q) => q.id !== questId) };
+      }
+      if (day.day === toDay) {
+        const idx = insertIdx !== undefined ? Math.min(insertIdx, day.quests.length) : day.quests.length;
+        const newQuests = [...day.quests];
+        newQuests.splice(idx, 0, quest);
+        return { ...day, quests: newQuests };
+      }
+      return day;
     });
 
-    setSaveToast("Trip saved to My Trips!");
-    setTimeout(() => setSaveToast(null), 3000);
+    updatePlannedItinerary(newItinerary);
+  }, [trip, updatePlannedItinerary]);
+
+  function handleDragStart(e: React.DragEvent, questId: string, fromDay: number) {
+    dragDataRef.current = { questId, fromDay };
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", questId);
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = "0.4";
+    }
+  }
+
+  function handleDragEnd(e: React.DragEvent) {
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = "1";
+    }
+    dragDataRef.current = null;
+    setDragOverDay(null);
+    setDragOverIdx(null);
+  }
+
+  function handleDayDragOver(e: React.DragEvent, dayNum: number) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverDay(dayNum);
+  }
+
+  function handleQuestDragOver(e: React.DragEvent, dayNum: number, idx: number) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverDay(dayNum);
+    setDragOverIdx(idx);
+  }
+
+  function handleDayDrop(e: React.DragEvent, dayNum: number) {
+    e.preventDefault();
+    const data = dragDataRef.current;
+    if (!data) return;
+    moveQuest(data.fromDay, dayNum, data.questId);
+    setDragOverDay(null);
+    setDragOverIdx(null);
+  }
+
+  function handleQuestDrop(e: React.DragEvent, dayNum: number, idx: number) {
+    e.preventDefault();
+    e.stopPropagation();
+    const data = dragDataRef.current;
+    if (!data) return;
+    moveQuest(data.fromDay, dayNum, data.questId, idx);
+    setDragOverDay(null);
+    setDragOverIdx(null);
+  }
+
+  function handleDayDragLeave() {
+    setDragOverDay(null);
+    setDragOverIdx(null);
   }
 
   if (!trip) {
@@ -50,10 +140,7 @@ export default function TripResultPage() {
           <div className="mb-4 text-5xl">🗺️</div>
           <h2 className="mb-2 text-lg font-semibold">No trip data found</h2>
           <p className="mb-6 text-sm text-muted">Go back and plan a trip first.</p>
-          <Link
-            href="/plan"
-            className="rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-hover"
-          >
+          <Link href="/plan" className="rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-hover">
             Plan a Trip
           </Link>
         </div>
@@ -62,7 +149,6 @@ export default function TripResultPage() {
   }
 
   const allQuests: Quest[] = trip.itinerary.flatMap((d) => d.quests);
-
   const hotelMarkers: Quest[] = trip.itinerary
     .filter((d) => d.hotel)
     .map((d) => ({
@@ -75,17 +161,12 @@ export default function TripResultPage() {
       detourMinutes: 0,
       xp: 0,
     }));
-
   const mapQuests = [...allQuests, ...hotelMarkers];
 
   return (
     <div className="flex h-screen flex-col">
       <header className="flex items-center gap-4 border-b border-border px-4 sm:px-6 py-3">
-        <Link
-          href="/plan"
-          aria-label="Back to Plan a Trip"
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted transition-colors hover:text-foreground"
-        >
+        <Link href="/plan" aria-label="Back to Plan a Trip" className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted transition-colors hover:text-foreground">
           ←
         </Link>
         <div className="flex-1 min-w-0">
@@ -98,20 +179,13 @@ export default function TripResultPage() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <aside
-          className={`${
-            mobileTab === "list" ? "flex" : "hidden"
-          } sm:flex w-full sm:w-96 shrink-0 flex-col border-r border-border overflow-y-auto`}
-        >
+        <aside className={`${mobileTab === "list" ? "flex" : "hidden"} sm:flex w-full sm:w-96 shrink-0 flex-col border-r border-border overflow-y-auto`}>
           {/* Cost breakdown */}
           <div className="border-b border-border p-4">
             <div className="rounded-lg bg-background p-3 space-y-1.5 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted">Transport</span>
-                <span className="font-medium">
-                  {trip.transportCost === 0 ? "Deutschlandticket" : `${trip.transportCost}€`}
-                </span>
+                <span className="font-medium">{trip.transportCost === 0 ? "Deutschlandticket" : `${trip.transportCost}€`}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted">Accommodation</span>
@@ -126,10 +200,7 @@ export default function TripResultPage() {
               <p className="mt-2 text-xs text-muted text-center">Round trip · {trip.totalDistance} km total</p>
             )}
             <div className="mt-3 flex gap-2">
-              <button
-                onClick={handleSaveTrip}
-                className="flex-1 rounded-lg border border-border py-2 text-xs font-medium text-foreground transition-colors hover:bg-card-hover"
-              >
+              <button onClick={handleSaveTrip} className="flex-1 rounded-lg border border-border py-2 text-xs font-medium text-foreground transition-colors hover:bg-card-hover">
                 💾 Save
               </button>
               <button
@@ -152,14 +223,24 @@ export default function TripResultPage() {
             {(saveToast || shareToast) && (
               <p className="mt-1 text-center text-xs font-medium text-secondary">{saveToast || shareToast}</p>
             )}
+            <p className="mt-2 text-center text-xs text-muted">Drag quests between days to rearrange</p>
           </div>
 
-          {/* Day-by-day itinerary */}
+          {/* Day-by-day itinerary with drag-and-drop */}
           <div className="flex-1 p-4 space-y-2">
             {trip.itinerary.map((day) => {
               const isExpanded = expandedDay === day.day;
+              const isDragTarget = dragOverDay === day.day;
               return (
-                <div key={day.day} className="rounded-xl border border-border bg-card overflow-hidden">
+                <div
+                  key={day.day}
+                  className={`rounded-xl border bg-card overflow-hidden transition-colors ${
+                    isDragTarget ? "border-primary border-2" : "border-border"
+                  }`}
+                  onDragOver={(e) => handleDayDragOver(e, day.day)}
+                  onDragLeave={handleDayDragLeave}
+                  onDrop={(e) => handleDayDrop(e, day.day)}
+                >
                   <button
                     onClick={() => setExpandedDay(isExpanded ? null : day.day)}
                     aria-expanded={isExpanded}
@@ -172,9 +253,7 @@ export default function TripResultPage() {
                     <div className="flex items-center gap-2 text-xs text-muted">
                       {day.distanceKm > 0 && <span>{day.distanceKm} km</span>}
                       {day.quests.length > 0 && (
-                        <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-primary">
-                          {day.quests.length}
-                        </span>
+                        <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-primary">{day.quests.length}</span>
                       )}
                       <span aria-hidden="true">{isExpanded ? "▲" : "▼"}</span>
                     </div>
@@ -190,29 +269,66 @@ export default function TripResultPage() {
                       )}
 
                       {day.quests.length > 0 ? (
-                        <div className="space-y-1.5">
-                          {day.quests.map((quest) => {
+                        <div className="space-y-1">
+                          {day.quests.map((quest, idx) => {
                             const cat = QUEST_CATEGORIES[quest.category] ?? QUEST_CATEGORIES.hidden_gem;
+                            const showDropIndicator = isDragTarget && dragOverIdx === idx;
                             return (
-                              <div key={quest.id} className="flex items-center gap-2 rounded-lg bg-background p-2">
+                              <div key={quest.id}>
+                                {showDropIndicator && (
+                                  <div className="h-0.5 rounded bg-primary mx-2 my-1" />
+                                )}
                                 <div
-                                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm"
-                                  style={{ backgroundColor: cat.color + "20" }}
+                                  draggable
+                                  onDragStart={(e) => handleDragStart(e, quest.id, day.day)}
+                                  onDragEnd={handleDragEnd}
+                                  onDragOver={(e) => handleQuestDragOver(e, day.day, idx)}
+                                  onDrop={(e) => handleQuestDrop(e, day.day, idx)}
+                                  className="flex items-center gap-2 rounded-lg bg-background p-2 cursor-grab active:cursor-grabbing group"
                                 >
-                                  {cat.icon}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="truncate text-sm font-medium">{quest.title}</p>
-                                  <p className="text-xs text-muted">{quest.xp} XP</p>
+                                  <div className="flex items-center text-muted opacity-40 group-hover:opacity-100 transition-opacity" aria-hidden="true">
+                                    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                                      <circle cx="3.5" cy="2" r="1.2" />
+                                      <circle cx="8.5" cy="2" r="1.2" />
+                                      <circle cx="3.5" cy="6" r="1.2" />
+                                      <circle cx="8.5" cy="6" r="1.2" />
+                                      <circle cx="3.5" cy="10" r="1.2" />
+                                      <circle cx="8.5" cy="10" r="1.2" />
+                                    </svg>
+                                  </div>
+                                  <div
+                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm"
+                                    style={{ backgroundColor: cat.color + "20" }}
+                                  >
+                                    {cat.icon}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-medium">{quest.title}</p>
+                                    <p className="text-xs text-muted">{quest.xp} XP</p>
+                                  </div>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); removeQuest(day.day, quest.id); }}
+                                    aria-label={`Remove ${quest.title}`}
+                                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-400 transition-all"
+                                  >
+                                    ✕
+                                  </button>
                                 </div>
                               </div>
                             );
                           })}
+                          {isDragTarget && dragOverIdx === null && (
+                            <div className="h-0.5 rounded bg-primary mx-2 my-1" />
+                          )}
                         </div>
                       ) : (
-                        <p className="text-xs text-muted italic">
-                          {day.distanceKm > 0 ? "Travel day" : "Free day to explore"}
-                        </p>
+                        <div
+                          className={`rounded-lg border-2 border-dashed p-4 text-center text-xs text-muted italic transition-colors ${
+                            isDragTarget ? "border-primary bg-primary/5" : "border-border"
+                          }`}
+                        >
+                          {isDragTarget ? "Drop quest here" : day.distanceKm > 0 ? "Travel day — drag quests here" : "Free day — drag quests here"}
+                        </div>
                       )}
 
                       {day.hotel && (
@@ -225,7 +341,6 @@ export default function TripResultPage() {
                         </div>
                       )}
 
-                      {/* Navigate Day link */}
                       {day.quests.length > 0 && (
                         <a
                           href={buildGoogleMapsUrl(
@@ -256,12 +371,7 @@ export default function TripResultPage() {
           </div>
         </aside>
 
-        {/* Map */}
-        <main
-          className={`${
-            mobileTab === "map" ? "flex" : "hidden"
-          } sm:flex flex-1 p-2 sm:p-4`}
-        >
+        <main className={`${mobileTab === "map" ? "flex" : "hidden"} sm:flex flex-1 p-2 sm:p-4`}>
           <DynamicMap
             routeGeometry={trip.outboundGeometry}
             originalRouteGeometry={trip.returnGeometry.length > 0 ? trip.returnGeometry : undefined}
@@ -272,15 +382,12 @@ export default function TripResultPage() {
         </main>
       </div>
 
-      {/* Mobile Tab Bar */}
       <div className="flex sm:hidden border-t border-border" role="tablist" aria-label="View mode">
         <button
           onClick={() => setMobileTab("list")}
           role="tab"
           aria-selected={mobileTab === "list"}
-          className={`flex-1 py-3 text-center text-sm font-medium transition-colors ${
-            mobileTab === "list" ? "text-primary bg-primary/5" : "text-muted"
-          }`}
+          className={`flex-1 py-3 text-center text-sm font-medium transition-colors ${mobileTab === "list" ? "text-primary bg-primary/5" : "text-muted"}`}
         >
           Itinerary
         </button>
@@ -288,9 +395,7 @@ export default function TripResultPage() {
           onClick={() => setMobileTab("map")}
           role="tab"
           aria-selected={mobileTab === "map"}
-          className={`flex-1 py-3 text-center text-sm font-medium transition-colors ${
-            mobileTab === "map" ? "text-primary bg-primary/5" : "text-muted"
-          }`}
+          className={`flex-1 py-3 text-center text-sm font-medium transition-colors ${mobileTab === "map" ? "text-primary bg-primary/5" : "text-muted"}`}
         >
           Map
         </button>
