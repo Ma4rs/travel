@@ -255,6 +255,15 @@ export default function TripResultPage() {
                       {day.quests.length > 0 && (
                         <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-primary">{day.quests.length}</span>
                       )}
+                      {(() => {
+                        const visitMin = day.quests.reduce((s, q) => s + (q.visitMinutes ?? 45), 0);
+                        const totalMin = day.durationMinutes + visitMin;
+                        if (totalMin > 0) {
+                          const h = Math.floor(totalMin / 60);
+                          return <span className={totalMin > 600 ? "text-red-400 font-medium" : ""}>{h}h</span>;
+                        }
+                        return null;
+                      })()}
                       <span aria-hidden="true">{isExpanded ? "▲" : "▼"}</span>
                     </div>
                   </button>
