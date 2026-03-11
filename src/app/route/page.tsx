@@ -425,7 +425,7 @@ export default function RoutePage() {
 
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itinerary?.length, tripDays]);
+  }, [itinerary?.length, tripDays, recalcRoute]);
 
   // Sort quests: selected first (in route order if recalculated), then unselected
   const displayGeometry = recalcRoute ? recalcRoute.geometry : routeGeometry;
@@ -839,7 +839,10 @@ export default function RoutePage() {
             ]}
             completedQuests={completedQuests}
             selectedQuestIds={selectedQuestIds}
-            onQuestClick={(q: Quest) => setSelectedQuest(q)}
+            onQuestClick={(q: Quest) => {
+              if (q.id.startsWith("hotel-day-")) return;
+              setSelectedQuest(q);
+            }}
           />
         </main>
       </div>
