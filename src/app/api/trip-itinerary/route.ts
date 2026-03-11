@@ -101,21 +101,18 @@ export async function POST(request: NextRequest) {
     const validFuel: FuelType = fuelType === "diesel" ? "diesel" : fuelType === "electric" ? "electric" : "petrol";
     const roundTrip = isRoundTrip !== false;
 
-    // Calculate outbound route
-    const outbound = await getRoute(originLat, originLng, destLat, destLng);
-    const outboundQuests = findQuestsAlongGeometry(outbound.geometry, validInterests);
+    const DEST_EXCLUSION_RADIUS_KM = 50;
+    const DEST_SEARCH_RADIUS_KM = 100;
+    const MAX_QUESTS_PER_DEST_DAY = 5;
 
-    // Calculate return route if round trip
+    // Calculate routes
+    const outbound = await getRoute(originLat, originLng, destLat, destLng);
     let returnRoute: { geometry: [number, number][]; distance: number; duration: number } | null = null;
-    let returnQuests: Quest[] = [];
     if (roundTrip) {
       returnRoute = await getRoute(destLat, destLng, originLat, originLng);
-      const usedIds = new Set(outboundQuests.map((q) => q.id));
-      returnQuests = findQuestsAlongGeometry(returnRoute.geometry, validInterests)
-        .filter((q) => !usedIds.has(q.id));
     }
 
-    // Split days: outbound days, destination days, return days
+    // Split days
     const outboundDays = roundTrip
       ? Math.max(1, Math.floor(validDays / 3))
       : Math.max(1, Math.floor(validDays / 2));
@@ -124,44 +121,76 @@ export async function POST(request: NextRequest) {
       : 0;
     const destDays = Math.max(0, validDays - outboundDays - returnDays);
 
-    // Assign quests to outbound segments
-    const sortedOutbound = [...outboundQuests].sort((a, b) =>
+    const usedIds = new Set<string>();
+
+    // ── Phase 1: Outbound quests (along the route, EXCLUDING destination area) ──
+    const allOutboundQuests = findQuestsAlongGeometry(outbound.geometry, validInterests);
+    const outboundOnly = allOutboundQuests.filter(
+      (q) => haversineKm(q.lat, q.lng, destLat, destLng) > DEST_EXCLUSION_RADIUS_KM
+    );
+    const sortedOutbound = [...outboundOnly].sort((a, b) =>
       findClosestGeometryIndex(a.lat, a.lng, outbound.geometry) -
       findClosestGeometryIndex(b.lat, b.lng, outbound.geometry)
     );
+    sortedOutbound.forEach((q) => usedIds.add(q.id));
 
-    const questsPerOutboundDay = Math.ceil(sortedOutbound.length / Math.max(1, outboundDays));
-    const sortedReturn = [...returnQuests].sort((a, b) =>
-      findClosestGeometryIndex(a.lat, a.lng, returnRoute?.geometry ?? []) -
-      findClosestGeometryIndex(b.lat, b.lng, returnRoute?.geometry ?? [])
-    );
-    const questsPerReturnDay = returnDays > 0 ? Math.ceil(sortedReturn.length / returnDays) : 0;
+    // ── Phase 2: Destination quests (within 100km of destination) ──
+    const destQuests = ALL_QUESTS
+      .filter((q) => {
+        if (usedIds.has(q.id)) return false;
+        const dist = haversineKm(q.lat, q.lng, destLat, destLng);
+        if (dist > DEST_SEARCH_RADIUS_KM) return false;
+        if (validInterests.length > 0 && !validInterests.includes(q.category)) return false;
+        return true;
+      })
+      .map((q) => ({
+        id: q.id, title: q.title, description: q.description,
+        category: q.category, lat: q.lat, lng: q.lng,
+        detourMinutes: Math.round(haversineKm(q.lat, q.lng, destLat, destLng)),
+        xp: q.xp,
+      }))
+      .sort((a, b) => a.detourMinutes - b.detourMinutes);
+    destQuests.forEach((q) => usedIds.add(q.id));
 
-    // Build itinerary days
+    // ── Phase 3: Return quests (along return route, EXCLUDING destination area) ──
+    let sortedReturn: Quest[] = [];
+    if (roundTrip && returnRoute) {
+      const allReturnQuests = findQuestsAlongGeometry(returnRoute.geometry, validInterests);
+      const returnOnly = allReturnQuests.filter(
+        (q) => !usedIds.has(q.id) && haversineKm(q.lat, q.lng, destLat, destLng) > DEST_EXCLUSION_RADIUS_KM
+      );
+      sortedReturn = [...returnOnly].sort((a, b) =>
+        findClosestGeometryIndex(a.lat, a.lng, returnRoute!.geometry) -
+        findClosestGeometryIndex(b.lat, b.lng, returnRoute!.geometry)
+      );
+    }
+
+    // ── Build itinerary ──
     const itinerary: ItineraryDay[] = [];
+    const destLabel = destName || "destination";
+
+    // Outbound days
     const outboundDistPerDay = (outbound.distance / 1000) / outboundDays;
     const outboundDurPerDay = (outbound.duration / 60) / outboundDays;
-    const totalGeoPoints = outbound.geometry.length;
-    const geoPerDay = Math.ceil(totalGeoPoints / outboundDays);
+    const outGeoLen = outbound.geometry.length;
+    const outGeoPerDay = Math.max(1, Math.ceil(outGeoLen / outboundDays));
+    const questsPerOutDay = Math.max(1, Math.ceil(sortedOutbound.length / outboundDays));
 
-    // Find hotels for overnight stops
     for (let d = 0; d < outboundDays; d++) {
-      const dayQuests = sortedOutbound.slice(d * questsPerOutboundDay, (d + 1) * questsPerOutboundDay);
-      const isLast = d === outboundDays - 1 && destDays > 0;
-
-      // Overnight location: end of this day's segment (or destination)
-      const segEnd = Math.min((d + 1) * geoPerDay - 1, totalGeoPoints - 1);
-      const overnightLat = isLast ? destLat : outbound.geometry[segEnd][0];
-      const overnightLng = isLast ? destLng : outbound.geometry[segEnd][1];
+      const dayQuests = sortedOutbound.slice(d * questsPerOutDay, (d + 1) * questsPerOutDay);
+      const isLastOutbound = d === outboundDays - 1;
+      const segEnd = Math.min((d + 1) * outGeoPerDay - 1, outGeoLen - 1);
+      const overnightLat = isLastOutbound ? destLat : outbound.geometry[segEnd][0];
+      const overnightLng = isLastOutbound ? destLng : outbound.geometry[segEnd][1];
 
       let hotel = undefined;
-      if (d < validDays - 1) {
-        hotel = await findBestHotelNear(overnightLat, overnightLng, destName || "Germany");
+      if (d + 1 < validDays) {
+        hotel = await findBestHotelNear(overnightLat, overnightLng, destLabel);
       }
 
       itinerary.push({
         day: d + 1,
-        label: outboundDays === 1 ? "Travel to destination" : `Outbound day ${d + 1}`,
+        label: outboundDays === 1 ? `Travel to ${destLabel}` : `Travel day ${d + 1}`,
         quests: dayQuests,
         hotel,
         distanceKm: Math.round(outboundDistPerDay),
@@ -170,22 +199,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Destination days (explore, no driving)
-    const destQuests = ALL_QUESTS
-      .filter((q) => {
-        const dist = haversineKm(q.lat, q.lng, destLat, destLng);
-        if (dist > 20) return false;
-        if (validInterests.length > 0 && !validInterests.includes(q.category)) return false;
-        const usedIds = new Set(sortedOutbound.map((oq) => oq.id));
-        return !usedIds.has(q.id);
-      })
-      .map((q) => ({
-        id: q.id, title: q.title, description: q.description,
-        category: q.category, lat: q.lat, lng: q.lng,
-        detourMinutes: 0, xp: q.xp,
-      }));
-
-    const questsPerDestDay = destDays > 0 ? Math.ceil(destQuests.length / destDays) : 0;
+    // Destination days
+    const questsPerDestDay = destDays > 0
+      ? Math.min(MAX_QUESTS_PER_DEST_DAY, Math.max(1, Math.ceil(destQuests.length / destDays)))
+      : 0;
 
     for (let d = 0; d < destDays; d++) {
       const dayQuests = destQuests.slice(d * questsPerDestDay, (d + 1) * questsPerDestDay);
@@ -193,12 +210,12 @@ export async function POST(request: NextRequest) {
 
       let hotel = undefined;
       if (dayNum < validDays) {
-        hotel = await findBestHotelNear(destLat, destLng, destName || "Germany");
+        hotel = await findBestHotelNear(destLat, destLng, destLabel);
       }
 
       itinerary.push({
         day: dayNum,
-        label: `Exploring ${destName || "destination"}`,
+        label: `Explore ${destLabel}`,
         quests: dayQuests,
         hotel,
         distanceKm: 0,
@@ -211,25 +228,24 @@ export async function POST(request: NextRequest) {
     if (roundTrip && returnRoute) {
       const returnDistPerDay = (returnRoute.distance / 1000) / returnDays;
       const returnDurPerDay = (returnRoute.duration / 60) / returnDays;
+      const retGeo = returnRoute.geometry;
+      const retGeoPerDay = retGeo.length > 0 ? Math.max(1, Math.ceil(retGeo.length / returnDays)) : 1;
+      const questsPerRetDay = returnDays > 0 ? Math.max(1, Math.ceil(sortedReturn.length / returnDays)) : 0;
 
       for (let d = 0; d < returnDays; d++) {
-        const dayQuests = sortedReturn.slice(d * questsPerReturnDay, (d + 1) * questsPerReturnDay);
+        const dayQuests = sortedReturn.slice(d * questsPerRetDay, (d + 1) * questsPerRetDay);
         const dayNum = outboundDays + destDays + d + 1;
         const isLastDay = dayNum === validDays;
 
         let hotel = undefined;
-        if (!isLastDay) {
-          const retGeo = returnRoute.geometry;
-          if (retGeo.length > 0) {
-            const retGeoPerDay = Math.max(1, Math.ceil(retGeo.length / returnDays));
-            const segEnd = Math.min((d + 1) * retGeoPerDay - 1, retGeo.length - 1);
-            hotel = await findBestHotelNear(retGeo[segEnd][0], retGeo[segEnd][1], "Germany");
-          }
+        if (!isLastDay && retGeo.length > 0) {
+          const segEnd = Math.min((d + 1) * retGeoPerDay - 1, retGeo.length - 1);
+          hotel = await findBestHotelNear(retGeo[segEnd][0], retGeo[segEnd][1], "Germany");
         }
 
         itinerary.push({
           day: dayNum,
-          label: isLastDay ? "Return home" : `Return day ${d + 1}`,
+          label: isLastDay ? "Head home" : `Return day ${d + 1}`,
           quests: dayQuests,
           hotel,
           distanceKm: Math.round(returnDistPerDay),
