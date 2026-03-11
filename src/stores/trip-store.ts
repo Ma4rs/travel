@@ -40,6 +40,7 @@ interface TripState {
   setIsLoadingQuests: (loading: boolean) => void;
   completeQuest: (questId: string, photoUrl: string) => void;
   completeMainQuest: (questId: string, photoUrl: string) => void;
+  removeCompletedQuest: (questId: string) => void;
   saveTrip: (title: string) => string;
   deleteTrip: (tripId: string) => void;
   loadTrip: (tripId: string) => void;
@@ -124,6 +125,11 @@ export const useTripStore = create<TripState>()(
         syncQuestCompletion(questId, photoUrl).catch(() => {
           // Offline — persisted locally, will sync on next load
         });
+      },
+      removeCompletedQuest: (questId: string) => {
+        const state = get();
+        const { [questId]: _, ...rest } = state.completedQuests;
+        set({ completedQuests: rest });
       },
       saveTrip: (title: string) => {
         const state = get();

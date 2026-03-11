@@ -11,7 +11,7 @@ import { QUEST_CATEGORIES } from "@/types";
 import type { Quest } from "@/types";
 
 export default function AlbumPage() {
-  const { completedQuests, completeQuest } = useTripStore();
+  const { completedQuests, completeQuest, removeCompletedQuest } = useTripStore();
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
 
   const entries = Object.values(completedQuests)
@@ -117,6 +117,10 @@ export default function AlbumPage() {
           completedAt={completedQuests[selectedQuest.id]?.completedAt}
           onComplete={(questId, photoUrl) => {
             completeQuest(questId, photoUrl);
+            setSelectedQuest(null);
+          }}
+          onRemove={(questId) => {
+            removeCompletedQuest(questId);
             setSelectedQuest(null);
           }}
         />

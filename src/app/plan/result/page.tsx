@@ -53,12 +53,13 @@ export default function TripResultPage() {
       const updatedItinerary = [...trip.itinerary];
       let totalDist = 0;
       let totalDur = 0;
+      const outboundGeo: [number, number][] = [];
+      const returnGeo: [number, number][] = [];
 
       for (let i = 0; i < updatedItinerary.length; i++) {
         const day = updatedItinerary[i];
         const isLastDay = i === updatedItinerary.length - 1;
 
-        // Determine start and end for this day's route
         const prevDay = i > 0 ? updatedItinerary[i - 1] : null;
         const dayStart = i === 0
           ? trip.origin
@@ -74,7 +75,6 @@ export default function TripResultPage() {
             ? (day.quests.length > 0 ? { lat: day.quests[day.quests.length - 1].lat, lng: day.quests[day.quests.length - 1].lng } : trip.origin)
             : trip.destination;
 
-        // Recalculate route for this day if it has quests
         if (day.quests.length > 0 || day.distanceKm > 0) {
           try {
             const routeRes = await fetch("/api/calc-route", {
@@ -95,13 +95,17 @@ export default function TripResultPage() {
               };
               totalDist += routeData.distance / 1000;
               totalDur += routeData.duration / 60;
+              if (day.isReturnDay) {
+                returnGeo.push(...routeData.geometry);
+              } else {
+                outboundGeo.push(...routeData.geometry);
+              }
             }
           } catch {
             // Keep existing route data
           }
         }
 
-        // Find hotel near the last quest of this day (not the last day)
         if (!isLastDay && day.quests.length > 0) {
           const lastQuest = day.quests[day.quests.length - 1];
           try {
@@ -130,6 +134,8 @@ export default function TripResultPage() {
       const updatedTrip = {
         ...trip,
         itinerary: updatedItinerary,
+        outboundGeometry: outboundGeo.length > 0 ? outboundGeo : trip.outboundGeometry,
+        returnGeometry: returnGeo.length > 0 ? returnGeo : trip.returnGeometry,
         totalDistance: Math.round(totalDist),
         totalDuration: Math.round(totalDur),
       };

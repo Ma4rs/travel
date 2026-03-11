@@ -10,6 +10,7 @@ interface QuestDetailProps {
   quest: Quest;
   onClose: () => void;
   onComplete?: (questId: string, photoUrl: string) => void;
+  onRemove?: (questId: string) => void;
   photoUrl?: string;
   completedAt?: string;
   isSelected?: boolean;
@@ -20,6 +21,7 @@ export default function QuestDetail({
   quest,
   onClose,
   onComplete,
+  onRemove,
   photoUrl,
   completedAt,
   isSelected,
@@ -174,6 +176,14 @@ export default function QuestDetail({
               className="rounded-xl border border-secondary px-6 py-3 font-medium text-secondary transition-colors hover:bg-secondary/10"
             >
               Complete
+            </button>
+          )}
+          {isCompleted && onRemove && (
+            <button
+              onClick={() => { onRemove(quest.id); onClose(); }}
+              className="rounded-xl border border-red-400/50 px-6 py-3 font-medium text-red-400 transition-colors hover:bg-red-400/10"
+            >
+              Remove
             </button>
           )}
         </div>

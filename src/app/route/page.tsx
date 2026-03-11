@@ -823,7 +823,19 @@ export default function RoutePage() {
           <DynamicMap
             routeGeometry={recalcRoute ? recalcRoute.geometry : routeGeometry}
             originalRouteGeometry={recalcRoute ? originalGeometry : undefined}
-            quests={quests}
+            quests={[
+              ...quests,
+              ...Object.entries(hotelMap).map(([dayNum, hotel]) => ({
+                id: `hotel-day-${dayNum}`,
+                title: hotel.name,
+                description: `~${hotel.estimatedPrice}€/night`,
+                category: "hidden_gem" as const,
+                lat: hotel.lat,
+                lng: hotel.lng,
+                detourMinutes: 0,
+                xp: 0,
+              })),
+            ]}
             completedQuests={completedQuests}
             selectedQuestIds={selectedQuestIds}
             onQuestClick={(q: Quest) => setSelectedQuest(q)}
