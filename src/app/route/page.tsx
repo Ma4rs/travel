@@ -572,7 +572,13 @@ export default function RoutePage() {
                           Day {dayPlan.day}
                         </h4>
                         <span className="text-xs text-muted">
-                          ~{dayPlan.distanceKm} km · {Math.floor(dayPlan.durationMinutes / 60)}h {dayPlan.durationMinutes % 60}min
+                          {(() => {
+                            const visitMin = dayPlan.quests.reduce((s, q) => s + (q.visitMinutes ?? 45), 0);
+                            const totalMin = dayPlan.durationMinutes + visitMin;
+                            const h = Math.floor(totalMin / 60);
+                            const m = totalMin % 60;
+                            return `~${dayPlan.distanceKm} km · ${h}h${m > 0 ? ` ${m}min` : ""} total`;
+                          })()}
                         </span>
                       </div>
                       {dayPlan.quests.length === 0 ? (

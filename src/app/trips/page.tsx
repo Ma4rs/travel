@@ -124,6 +124,12 @@ export default function TripsPage() {
                   <span className="rounded-lg bg-primary/10 px-2.5 py-1 font-medium text-primary">
                     {trip.quests.length} {trip.quests.length === 1 ? "quest" : "quests"}
                   </span>
+                  {trip.totalDistance && (
+                    <span>{Math.round(trip.totalDistance / 1000)} km</span>
+                  )}
+                  {trip.days && trip.days > 1 && (
+                    <span>{trip.days} days</span>
+                  )}
                   <span className="flex items-center gap-1">
                     📅 {formatDate(trip.createdAt)}
                   </span>

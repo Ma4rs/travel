@@ -215,7 +215,11 @@ export default function PlanPage() {
                   <input
                     type="number"
                     value={minBudget}
-                    onChange={(e) => setMinBudget(Number(e.target.value))}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setMinBudget(val);
+                      if (val > maxBudget) setMaxBudget(val);
+                    }}
                     min={0}
                     step={50}
                     placeholder="Min"
@@ -228,7 +232,10 @@ export default function PlanPage() {
                   <input
                     type="number"
                     value={maxBudget}
-                    onChange={(e) => setMaxBudget(Number(e.target.value))}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setMaxBudget(Math.max(val, minBudget));
+                    }}
                     min={minBudget}
                     step={50}
                     placeholder="Max"

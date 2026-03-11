@@ -205,9 +205,13 @@ export default function TripResultPage() {
               </button>
               <button
                 onClick={() => {
-                  const url = window.location.origin + "/plan";
+                  const params = new URLSearchParams();
+                  params.set("from", trip.origin.name);
+                  params.set("to", trip.destination.name);
+                  if (trip.days > 1) params.set("days", String(trip.days));
+                  const url = `${window.location.origin}/route?${params.toString()}`;
                   if (navigator.share) {
-                    navigator.share({ title: trip.title, text: `Check out this trip: ${trip.title}`, url }).catch(() => {});
+                    navigator.share({ title: trip.title, text: `${trip.origin.name} → ${trip.destination.name} (${trip.days} days)`, url }).catch(() => {});
                   } else {
                     navigator.clipboard.writeText(url).then(() => {
                       setShareToast("Link copied!");
