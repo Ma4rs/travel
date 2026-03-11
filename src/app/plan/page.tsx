@@ -20,6 +20,7 @@ interface TripSuggestion {
   transportCost: number;
   accommodationCost: number;
   drivingDistanceKm: number;
+  totalActivityHours: number;
   highlights: string[];
   center: [number, number];
   transportMode: TransportMode;
@@ -394,6 +395,11 @@ export default function PlanPage() {
                       {trip.activityCount > 0 && (
                         <span className="rounded-full bg-rose-500/10 px-2.5 py-1 text-xs font-medium text-rose-500">
                           🎢 {trip.activityCount} activities
+                        </span>
+                      )}
+                      {trip.totalActivityHours > 0 && (
+                        <span className="rounded-full bg-foreground/5 px-2.5 py-1 text-xs font-medium text-muted">
+                          ~{trip.totalActivityHours}h to do
                         </span>
                       )}
                     </div>

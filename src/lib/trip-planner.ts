@@ -15,6 +15,7 @@ export interface TripSuggestion {
   transportCost: number;
   accommodationCost: number;
   drivingDistanceKm: number;
+  totalActivityHours: number;
   highlights: string[];
   center: [number, number];
   transportMode: TransportMode;
@@ -124,6 +125,15 @@ export async function planTrips(
       (a) => haversineKm(a.lat, a.lng, r.region.center[0], r.region.center[1]) < 80
     );
 
+    const DEFAULT_VISIT: Record<string, number> = {
+      activity: 240, food: 60, scenic: 30, photo_spot: 20,
+      hidden_gem: 45, history: 45, nature: 60, culture: 60, weird: 30,
+    };
+    const totalVisitMin = r.matchingQuests.reduce(
+      (sum, q) => sum + (q.visitMinutes ?? DEFAULT_VISIT[q.category] ?? 45), 0
+    );
+    const totalActivityHours = Math.round(totalVisitMin / 60);
+
     return {
       title: `Explore ${r.region.name}`,
       destination: r.region.name,
@@ -135,6 +145,7 @@ export async function planTrips(
       transportCost,
       accommodationCost,
       drivingDistanceKm,
+      totalActivityHours,
       highlights: r.topQuests.map((q) => q.title),
       center: r.region.center,
       transportMode,
@@ -142,6 +153,7 @@ export async function planTrips(
       fuelType,
       score:
         r.matchingQuests.length * 10 +
+        nearbyActivities.length * 15 +
         r.totalXP / 10 -
         drivingDistanceKm / 50,
       fitsbudget: estimatedCost >= minBudget && estimatedCost <= maxBudget,
