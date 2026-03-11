@@ -116,6 +116,7 @@ export default function TripResultPage() {
     moveQuest(data.fromDay, dayNum, data.questId);
     setDragOverDay(null);
     setDragOverIdx(null);
+    setExpandedDay(dayNum);
   }
 
   function handleQuestDrop(e: React.DragEvent, dayNum: number, idx: number) {
@@ -126,6 +127,7 @@ export default function TripResultPage() {
     moveQuest(data.fromDay, dayNum, data.questId, idx);
     setDragOverDay(null);
     setDragOverIdx(null);
+    setExpandedDay(dayNum);
   }
 
   function handleDayDragLeave() {
@@ -398,7 +400,13 @@ export default function TripResultPage() {
             originalRouteGeometry={trip.returnGeometry.length > 0 ? trip.returnGeometry : undefined}
             quests={mapQuests}
             completedQuests={{}}
-            onQuestClick={() => {}}
+            onQuestClick={(q) => {
+              const day = trip.itinerary.find((d) => d.quests.some((dq) => dq.id === q.id));
+              if (day) {
+                setExpandedDay(day.day);
+                setMobileTab("list");
+              }
+            }}
           />
         </main>
       </div>

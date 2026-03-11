@@ -84,8 +84,8 @@ export default function QuestCard({
           )}
           <div className="min-w-0 flex-1">
             <h4 className="truncate text-sm font-medium">{quest.title}</h4>
-            <div className="flex items-center gap-2 text-xs text-muted">
-              <span>+{quest.detourMinutes} min</span>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
+              <span>+{quest.detourMinutes}min</span>
               <span>·</span>
               <span>{quest.xp} XP</span>
               {quest.visitMinutes && (

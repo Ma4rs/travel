@@ -372,6 +372,7 @@ export default function RoutePage() {
     params.set("from", origin.name);
     params.set("to", destination.name);
     if (interests.length > 0) params.set("interests", interests.join(","));
+    if (tripDays > 1) params.set("days", String(tripDays));
     const url = `${window.location.origin}/route?${params.toString()}`;
 
     if (navigator.share) {

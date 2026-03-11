@@ -90,14 +90,22 @@ export default function TripsPage() {
             <div className="mb-4 text-5xl">🗺️</div>
             <h3 className="mb-2 text-lg font-medium">No saved trips yet</h3>
             <p className="mb-6 text-sm text-muted">
-              Find side quests on a route and save it to see it here.
+              Save trips from the route planner or the trip planner to see them here.
             </p>
-            <Link
-              href="/route"
-              className="inline-flex items-center gap-1 rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
-            >
-              Enhance a Route →
-            </Link>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Link
+                href="/route"
+                className="inline-flex items-center gap-1 rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
+              >
+                Enhance a Route →
+              </Link>
+              <Link
+                href="/plan"
+                className="inline-flex items-center gap-1 rounded-xl border border-primary px-5 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5"
+              >
+                Plan a Trip →
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="grid gap-4">
