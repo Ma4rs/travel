@@ -103,19 +103,33 @@ export default function MapView({
     markersRef.current.clearLayers();
 
     quests.forEach((quest) => {
+      const isHotelMarker = quest.id.startsWith("hotel-day-");
       const cat = QUEST_CATEGORIES[quest.category] ?? QUEST_CATEGORIES.hidden_gem;
       const rawPhotoUrl = completedQuests?.[quest.id]?.photoUrl || quest.photoUrl;
       const isCompleted = quest.completed || !!completedQuests?.[quest.id];
       const isSelected = !selectedQuestIds || selectedQuestIds.has(quest.id);
-      const markerColor = isSelected ? cat.color : "#9CA3AF";
+      const markerColor = isHotelMarker ? "#0D9488" : isSelected ? cat.color : "#9CA3AF";
       const markerOpacity = isSelected ? "1" : "0.5";
 
       const safePhotoUrl = rawPhotoUrl
         ? rawPhotoUrl.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
         : "";
 
-      const innerHtml =
-        isCompleted && safePhotoUrl
+      const innerHtml = isHotelMarker
+        ? `<div style="
+            background: #0D9488;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            border: 3px solid #5EEAD4;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            cursor: pointer;
+          ">🏨</div>`
+        : isCompleted && safePhotoUrl
           ? `<img src="${safePhotoUrl}" style="width:36px;height:36px;border-radius:50%;border:3px solid #10B981;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;opacity:${markerOpacity};" />`
           : `<div style="
               background: ${markerColor};

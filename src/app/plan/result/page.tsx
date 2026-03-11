@@ -75,7 +75,8 @@ export default function TripResultPage() {
             ? (day.quests.length > 0 ? { lat: day.quests[day.quests.length - 1].lat, lng: day.quests[day.quests.length - 1].lng } : trip.origin)
             : trip.destination;
 
-        if (day.quests.length > 0 || day.distanceKm > 0) {
+        const hasTravel = dayStart.lat !== dayEnd.lat || dayStart.lng !== dayEnd.lng;
+        if (day.quests.length > 0 || day.distanceKm > 0 || hasTravel) {
           try {
             const routeRes = await fetch("/api/calc-route", {
               method: "POST",
