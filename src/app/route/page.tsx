@@ -407,7 +407,8 @@ export default function RoutePage() {
           });
           if (!res.ok) return { day: day.day, hotel: null };
           const data = await res.json();
-          return { day: day.day, hotel: data.hotel };
+          const hotel = Array.isArray(data.hotels) ? data.hotels[0] ?? null : data.hotel ?? null;
+          return { day: day.day, hotel };
         } catch {
           return { day: day.day, hotel: null };
         }

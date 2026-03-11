@@ -119,21 +119,27 @@ Return ONLY a JSON array of numbers (estimated price per night in EUR), one per 
   }
 }
 
+export async function findHotelsNearWithPrices(
+  lat: number,
+  lng: number,
+  regionName: string,
+  limit: number = 5
+): Promise<Hotel[]> {
+  let rawHotels = await findHotelsNear(lat, lng, 15000);
+  if (rawHotels.length === 0) {
+    rawHotels = await findHotelsNear(lat, lng, 30000);
+  }
+  if (rawHotels.length === 0) return [];
+
+  const withPrices = await estimateHotelPrices(rawHotels.slice(0, limit), regionName);
+  return withPrices.sort((a, b) => a.estimatedPrice - b.estimatedPrice);
+}
+
 export async function findBestHotelNear(
   lat: number,
   lng: number,
   regionName: string
 ): Promise<Hotel | undefined> {
-  let rawHotels = await findHotelsNear(lat, lng, 15000);
-  if (rawHotels.length === 0) {
-    rawHotels = await findHotelsNear(lat, lng, 30000);
-  }
-  if (rawHotels.length === 0) return undefined;
-
-  const withPrices = await estimateHotelPrices(rawHotels, regionName);
-  const hotels = withPrices.filter((h) => h.type === "hotel");
-  const sorted = (hotels.length > 0 ? hotels : withPrices).sort(
-    (a, b) => a.estimatedPrice - b.estimatedPrice
-  );
-  return sorted[0];
+  const hotels = await findHotelsNearWithPrices(lat, lng, regionName, 1);
+  return hotels[0];
 }

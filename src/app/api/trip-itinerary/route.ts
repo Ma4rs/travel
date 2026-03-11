@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRoute, sampleRoutePoints } from "@/lib/osrm";
-import { findBestHotelNear } from "@/lib/hotels";
+import { findHotelsNearWithPrices } from "@/lib/hotels";
 import { ALL_QUESTS } from "@/data/regions";
 import type { QuestCategory, Quest, ItineraryDay, TransportMode, FuelType } from "@/types";
 
@@ -225,8 +225,11 @@ export async function POST(request: NextRequest) {
       const overnightLng = isLastOutbound ? destLng : lastQuest?.lng ?? outbound.geometry[Math.min((d + 1) * outGeoPerDay - 1, outGeoLen - 1)][1];
 
       let hotel = undefined;
+      let hotelOptions: typeof hotel[] = [];
       if (d + 1 < validDays) {
-        hotel = await findBestHotelNear(overnightLat, overnightLng, destLabel);
+        const options = await findHotelsNearWithPrices(overnightLat, overnightLng, destLabel, 5);
+        hotelOptions = options;
+        hotel = options[0];
       }
 
       itinerary.push({
@@ -234,6 +237,7 @@ export async function POST(request: NextRequest) {
         label: outboundDays === 1 ? `Travel to ${destLabel}` : `Travel day ${d + 1}`,
         quests: dayQuests,
         hotel,
+        hotelOptions: hotelOptions.length > 0 ? hotelOptions : undefined,
         distanceKm: Math.round(outboundDistPerDay),
         durationMinutes: Math.round(outboundDurPerDay),
         isReturnDay: false,
@@ -249,12 +253,15 @@ export async function POST(request: NextRequest) {
       const lastDestQuest = dayQuests.length > 0 ? dayQuests[dayQuests.length - 1] : null;
 
       let hotel = undefined;
+      let hotelOptions: typeof hotel[] = [];
       if (dayNum < validDays) {
-        hotel = await findBestHotelNear(
+        const options = await findHotelsNearWithPrices(
           lastDestQuest?.lat ?? destLat,
           lastDestQuest?.lng ?? destLng,
-          destLabel
+          destLabel, 5
         );
+        hotelOptions = options;
+        hotel = options[0];
       }
 
       itinerary.push({
@@ -262,6 +269,7 @@ export async function POST(request: NextRequest) {
         label: `Explore ${destLabel}`,
         quests: dayQuests,
         hotel,
+        hotelOptions: hotelOptions.length > 0 ? hotelOptions : undefined,
         distanceKm: 0,
         durationMinutes: 0,
         isReturnDay: false,
@@ -282,13 +290,15 @@ export async function POST(request: NextRequest) {
         const isLastDay = dayNum === validDays;
 
         let hotel = undefined;
+        let hotelOptions: typeof hotel[] = [];
         if (!isLastDay) {
           const lastRetQuest = dayQuests.length > 0 ? dayQuests[dayQuests.length - 1] : null;
-          if (lastRetQuest) {
-            hotel = await findBestHotelNear(lastRetQuest.lat, lastRetQuest.lng, "Germany");
-          } else if (retGeo.length > 0) {
-            const segEnd = Math.min((d + 1) * retGeoPerDay - 1, retGeo.length - 1);
-            hotel = await findBestHotelNear(retGeo[segEnd][0], retGeo[segEnd][1], "Germany");
+          const searchLat = lastRetQuest?.lat ?? (retGeo.length > 0 ? retGeo[Math.min((d + 1) * retGeoPerDay - 1, retGeo.length - 1)][0] : 0);
+          const searchLng = lastRetQuest?.lng ?? (retGeo.length > 0 ? retGeo[Math.min((d + 1) * retGeoPerDay - 1, retGeo.length - 1)][1] : 0);
+          if (searchLat !== 0) {
+            const options = await findHotelsNearWithPrices(searchLat, searchLng, "Germany", 5);
+            hotelOptions = options;
+            hotel = options[0];
           }
         }
 
@@ -297,6 +307,7 @@ export async function POST(request: NextRequest) {
           label: isLastDay ? "Head home" : `Return day ${d + 1}`,
           quests: dayQuests,
           hotel,
+          hotelOptions: hotelOptions.length > 0 ? hotelOptions : undefined,
           distanceKm: Math.round(returnDistPerDay),
           durationMinutes: Math.round(returnDurPerDay),
           isReturnDay: true,

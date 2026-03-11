@@ -5,7 +5,7 @@ import Link from "next/link";
 import DynamicMap from "@/components/map/DynamicMap";
 import UserMenu from "@/components/UserMenu";
 import { useTripStore } from "@/stores/trip-store";
-import type { Quest, ItineraryDay } from "@/types";
+import type { Quest, ItineraryDay, Hotel } from "@/types";
 import { QUEST_CATEGORIES } from "@/types";
 import { formatDurationMinutes, buildGoogleMapsUrl } from "@/lib/utils";
 
@@ -19,6 +19,7 @@ export default function TripResultPage() {
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const [selectedHotel, setSelectedHotel] = useState<{ hotel: Hotel; dayNum: number } | null>(null);
   const dragDataRef = useRef<{ questId: string; fromDay: number } | null>(null);
 
   function handleSaveTrip() {
@@ -121,9 +122,11 @@ export default function TripResultPage() {
             });
             if (hotelRes.ok) {
               const hotelData = await hotelRes.json();
+              const hotels = Array.isArray(hotelData.hotels) ? hotelData.hotels : [];
               updatedItinerary[i] = {
                 ...updatedItinerary[i],
-                hotel: hotelData.hotel ?? undefined,
+                hotel: hotels[0] ?? undefined,
+                hotelOptions: hotels.length > 0 ? hotels : undefined,
               };
             }
           } catch {
@@ -147,6 +150,15 @@ export default function TripResultPage() {
     } finally {
       setIsRecalculating(false);
     }
+  }
+
+  function selectHotelForDay(dayNum: number, hotel: Hotel) {
+    if (!trip) return;
+    const newItinerary = trip.itinerary.map((day) =>
+      day.day === dayNum ? { ...day, hotel } : day
+    );
+    updatePlannedItinerary(newItinerary);
+    setSelectedHotel(null);
   }
 
   const removeQuest = useCallback((dayNum: number, questId: string) => {
@@ -267,18 +279,19 @@ export default function TripResultPage() {
   }
 
   const allQuests: Quest[] = trip.itinerary.flatMap((d) => d.quests);
-  const hotelMarkers: Quest[] = trip.itinerary
-    .filter((d) => d.hotel)
-    .map((d) => ({
-      id: `hotel-day-${d.day}`,
-      title: d.hotel!.name,
-      description: `~${d.hotel!.estimatedPrice}€/night`,
+  const hotelMarkers: Quest[] = trip.itinerary.flatMap((d) => {
+    const options = d.hotelOptions ?? (d.hotel ? [d.hotel] : []);
+    return options.map((h, idx) => ({
+      id: `hotel-day-${d.day}-${idx}`,
+      title: h.name,
+      description: `~${h.estimatedPrice}€/night · Day ${d.day}`,
       category: "hidden_gem" as const,
-      lat: d.hotel!.lat,
-      lng: d.hotel!.lng,
+      lat: h.lat,
+      lng: h.lng,
       detourMinutes: 0,
-      xp: 0,
+      xp: d.day,
     }));
+  });
   const mapQuests = [...allQuests, ...hotelMarkers];
 
   return (
@@ -363,6 +376,49 @@ export default function TripResultPage() {
             )}
             <p className="mt-2 text-center text-xs text-muted">Drag quests between days to rearrange</p>
           </div>
+
+          {/* Hotel selection card */}
+          {selectedHotel && (
+            <div className="border-b border-border p-4">
+              <div className="rounded-xl border border-teal-500/30 bg-teal-500/5 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold">Hotel Details</h3>
+                  <button
+                    onClick={() => setSelectedHotel(null)}
+                    className="text-xs text-muted hover:text-foreground"
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="mb-2">
+                  <p className="font-medium">{selectedHotel.hotel.name}</p>
+                  <p className="text-xs text-muted capitalize">
+                    {selectedHotel.hotel.type.replace("_", " ")}
+                    {selectedHotel.hotel.stars ? ` · ${selectedHotel.hotel.stars} stars` : ""}
+                  </p>
+                  <p className="text-sm font-semibold text-accent mt-1">
+                    ~{selectedHotel.hotel.estimatedPrice}€/night
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => selectHotelForDay(selectedHotel.dayNum, selectedHotel.hotel)}
+                    className="flex-1 rounded-lg bg-teal-600 py-2 text-xs font-medium text-white hover:bg-teal-700 transition-colors"
+                  >
+                    Select for Day {selectedHotel.dayNum}
+                  </button>
+                  <a
+                    href={`https://www.google.com/maps/search/${encodeURIComponent(selectedHotel.hotel.name)}/@${selectedHotel.hotel.lat},${selectedHotel.hotel.lng},15z`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 rounded-lg border border-border py-2 text-center text-xs font-medium text-foreground hover:bg-card-hover transition-colors"
+                  >
+                    View on Maps
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Day-by-day itinerary with drag-and-drop */}
           <div className="flex-1 p-4 space-y-2">
@@ -491,8 +547,21 @@ export default function TripResultPage() {
                           <span className="text-lg">🏨</span>
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium">{day.hotel.name}</p>
-                            <p className="text-xs text-accent">~{day.hotel.estimatedPrice}€/night</p>
+                            <p className="text-xs text-accent">
+                              ~{day.hotel.estimatedPrice}€/night
+                              {day.hotelOptions && day.hotelOptions.length > 1 && (
+                                <span className="ml-1 text-muted">· {day.hotelOptions.length - 1} more on map</span>
+                              )}
+                            </p>
                           </div>
+                          <a
+                            href={`https://www.google.com/maps/search/${encodeURIComponent(day.hotel.name)}/@${day.hotel.lat},${day.hotel.lng},15z`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 rounded-md bg-accent/20 px-2 py-1 text-xs font-medium text-accent hover:bg-accent/30"
+                          >
+                            Maps
+                          </a>
                         </div>
                       )}
 
@@ -536,10 +605,23 @@ export default function TripResultPage() {
             quests={mapQuests}
             completedQuests={{}}
             onQuestClick={(q) => {
-              const day = trip.itinerary.find((d) => d.quests.some((dq) => dq.id === q.id));
-              if (day) {
-                setExpandedDay(day.day);
-                setMobileTab("list");
+              if (q.id.startsWith("hotel-day-")) {
+                const parts = q.id.split("-");
+                const dayNum = parseInt(parts[2], 10);
+                const day = trip.itinerary.find((d) => d.day === dayNum);
+                const options = day?.hotelOptions ?? (day?.hotel ? [day.hotel] : []);
+                const hotelIdx = parseInt(parts[3], 10);
+                const hotel = options[hotelIdx];
+                if (hotel && day) {
+                  setSelectedHotel({ hotel, dayNum: day.day });
+                  setMobileTab("list");
+                }
+              } else {
+                const day = trip.itinerary.find((d) => d.quests.some((dq) => dq.id === q.id));
+                if (day) {
+                  setExpandedDay(day.day);
+                  setMobileTab("list");
+                }
               }
             }}
           />

@@ -139,6 +139,7 @@ export interface ItineraryDay {
   label: string;
   quests: Quest[];
   hotel?: Hotel;
+  hotelOptions?: Hotel[];
   distanceKm: number;
   durationMinutes: number;
   isReturnDay: boolean;
