@@ -6,7 +6,13 @@ const features = [
     icon: "🗺️",
     title: "AI-Powered Quests",
     description:
-      "Our AI finds hidden gems, scenic detours, and local favorites you'd never discover on your own.",
+      "Our AI finds hidden gems, scenic detours, and local favorites along any route. Real-time weather info on every quest.",
+  },
+  {
+    icon: "🏨",
+    title: "Full Trip Planner",
+    description:
+      "Plan multi-day trips with hotel suggestions, cost breakdowns, and day-by-day itineraries. Car, train, or electric — your choice.",
   },
   {
     icon: "🎮",
@@ -15,10 +21,10 @@ const features = [
       "Earn XP for every quest, track progress across 16 German states, and build a personal photo album of your adventures.",
   },
   {
-    icon: "📱",
-    title: "Installable & Offline",
+    icon: "💾",
+    title: "Save & Share",
     description:
-      "Install on your phone like a native app. Browse your album and completed quests even without signal.",
+      "Save your favorite routes, share them with friends via link, and export trips as JSON. All your trips in one place.",
   },
 ];
 
@@ -108,8 +114,8 @@ export default function Home() {
             </Link>
           </div>
 
-          {/* Explore + Album Cards — full width below */}
-          <div className="mx-auto mt-6 max-w-3xl grid gap-4 sm:grid-cols-2">
+          {/* Secondary cards */}
+          <div className="mx-auto mt-6 max-w-3xl grid gap-4 sm:grid-cols-3">
             <Link href="/explore" className="group block">
               <div className="h-full rounded-2xl border border-border bg-card p-6 transition-all duration-300 hover:border-accent/50 hover:bg-card-hover hover:shadow-lg hover:shadow-accent/5">
                 <div className="mb-3 text-3xl">🗺️</div>
@@ -117,23 +123,12 @@ export default function Home() {
                   Exploration Progress
                 </h2>
                 <p className="mb-3 text-sm text-muted">
-                  Track how much of Germany you&apos;ve explored. Complete
-                  quests in every state and fill the map.
+                  Track how much of Germany you&apos;ve explored across all 16 states.
                 </p>
                 <span className="inline-flex items-center text-sm font-medium text-accent">
                   View map
-                  <svg
-                    className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
+                  <svg className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </span>
               </div>
@@ -146,23 +141,30 @@ export default function Home() {
                   Memory Album
                 </h2>
                 <p className="mb-3 text-sm text-muted">
-                  Browse your travel photos. Every completed quest becomes a
-                  memory in your personal album.
+                  Browse your travel photos from completed quests.
                 </p>
                 <span className="inline-flex items-center text-sm font-medium text-secondary">
                   View album
-                  <svg
-                    className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
+                  <svg className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </span>
+              </div>
+            </Link>
+
+            <Link href="/trips" className="group block">
+              <div className="h-full rounded-2xl border border-border bg-card p-6 transition-all duration-300 hover:border-primary/50 hover:bg-card-hover hover:shadow-lg hover:shadow-primary/5">
+                <div className="mb-3 text-3xl">💾</div>
+                <h2 className="mb-1 text-lg font-semibold">
+                  My Trips
+                </h2>
+                <p className="mb-3 text-sm text-muted">
+                  View, load, and share your saved routes and planned trips.
+                </p>
+                <span className="inline-flex items-center text-sm font-medium text-primary">
+                  View trips
+                  <svg className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </span>
               </div>
@@ -178,7 +180,7 @@ export default function Home() {
             Not just navigation.{" "}
             <span className="text-primary">Adventure.</span>
           </h2>
-          <div className="grid gap-8 sm:grid-cols-3">
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {features.map((feature) => (
               <div key={feature.title} className="text-center">
                 <div className="mb-4 text-3xl">{feature.icon}</div>

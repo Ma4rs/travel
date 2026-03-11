@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import DynamicMap from "@/components/map/DynamicMap";
 import UserMenu from "@/components/UserMenu";
-import type { PlannedTrip, Quest } from "@/types";
+import type { PlannedTrip, Quest, RoutePoint } from "@/types";
 import { QUEST_CATEGORIES } from "@/types";
 
 function formatDuration(minutes: number): string {
@@ -15,9 +15,24 @@ function formatDuration(minutes: number): string {
   return `${h}h ${m}min`;
 }
 
+function buildGoogleMapsUrl(
+  origin: RoutePoint,
+  destination: RoutePoint,
+  quests: Quest[]
+): string {
+  const base = "https://www.google.com/maps/dir/";
+  const waypoints = [
+    `${origin.lat},${origin.lng}`,
+    ...quests.map((q) => `${q.lat},${q.lng}`),
+    `${destination.lat},${destination.lng}`,
+  ];
+  return base + waypoints.join("/");
+}
+
 export default function TripResultPage() {
   const searchParams = useSearchParams();
   const [trip, setTrip] = useState<PlannedTrip | null>(null);
+  const [parseError, setParseError] = useState(false);
   const [expandedDay, setExpandedDay] = useState<number | null>(1);
   const [mobileTab, setMobileTab] = useState<"list" | "map">("list");
 
@@ -26,9 +41,13 @@ export default function TripResultPage() {
     if (raw) {
       try {
         const parsed = JSON.parse(decodeURIComponent(raw));
-        setTrip(parsed);
+        if (parsed && parsed.itinerary) {
+          setTrip(parsed);
+        } else {
+          setParseError(true);
+        }
       } catch {
-        // Invalid data
+        setParseError(true);
       }
     }
   }, [searchParams]);
@@ -37,9 +56,15 @@ export default function TripResultPage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="mb-4 text-5xl">🗺️</div>
-          <h2 className="mb-2 text-lg font-semibold">No trip data found</h2>
-          <p className="mb-6 text-sm text-muted">Go back and plan a trip first.</p>
+          <div className="mb-4 text-5xl">{parseError ? "⚠️" : "🗺️"}</div>
+          <h2 className="mb-2 text-lg font-semibold">
+            {parseError ? "Invalid trip data" : "No trip data found"}
+          </h2>
+          <p className="mb-6 text-sm text-muted">
+            {parseError
+              ? "The trip data could not be loaded. Please go back and try again."
+              : "Go back and plan a trip first."}
+          </p>
           <Link
             href="/plan"
             className="rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-hover"
@@ -73,6 +98,7 @@ export default function TripResultPage() {
       <header className="flex items-center gap-4 border-b border-border px-4 sm:px-6 py-3">
         <Link
           href="/plan"
+          aria-label="Back to Plan a Trip"
           className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted transition-colors hover:text-foreground"
         >
           ←
@@ -118,75 +144,103 @@ export default function TripResultPage() {
 
           {/* Day-by-day itinerary */}
           <div className="flex-1 p-4 space-y-2">
-            {trip.itinerary.map((day) => (
-              <div key={day.day} className="rounded-xl border border-border bg-card overflow-hidden">
-                <button
-                  onClick={() => setExpandedDay(expandedDay === day.day ? null : day.day)}
-                  className="flex w-full items-center justify-between p-3 text-left hover:bg-card-hover transition-colors"
-                >
-                  <div>
-                    <span className="text-sm font-semibold">Day {day.day}</span>
-                    <span className="ml-2 text-xs text-muted">{day.label}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-muted">
-                    {day.distanceKm > 0 && <span>{day.distanceKm} km</span>}
-                    {day.quests.length > 0 && (
-                      <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-primary">
-                        {day.quests.length}
-                      </span>
-                    )}
-                    <span>{expandedDay === day.day ? "▲" : "▼"}</span>
-                  </div>
-                </button>
+            {trip.itinerary.map((day) => {
+              const isExpanded = expandedDay === day.day;
+              return (
+                <div key={day.day} className="rounded-xl border border-border bg-card overflow-hidden">
+                  <button
+                    onClick={() => setExpandedDay(isExpanded ? null : day.day)}
+                    aria-expanded={isExpanded}
+                    className="flex w-full items-center justify-between p-3 text-left hover:bg-card-hover transition-colors"
+                  >
+                    <div>
+                      <span className="text-sm font-semibold">Day {day.day}</span>
+                      <span className="ml-2 text-xs text-muted">{day.label}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted">
+                      {day.distanceKm > 0 && <span>{day.distanceKm} km</span>}
+                      {day.quests.length > 0 && (
+                        <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-primary">
+                          {day.quests.length}
+                        </span>
+                      )}
+                      <span aria-hidden="true">{isExpanded ? "▲" : "▼"}</span>
+                    </div>
+                  </button>
 
-                {expandedDay === day.day && (
-                  <div className="border-t border-border p-3 space-y-2">
-                    {day.distanceKm > 0 && (
-                      <div className="flex items-center gap-2 text-xs text-muted">
-                        <span>{day.isReturnDay ? "🔙" : "🚗"}</span>
-                        <span>{day.distanceKm} km · ~{formatDuration(day.durationMinutes)}</span>
-                      </div>
-                    )}
-
-                    {day.quests.length > 0 ? (
-                      <div className="space-y-1.5">
-                        {day.quests.map((quest) => {
-                          const cat = QUEST_CATEGORIES[quest.category];
-                          return (
-                            <div key={quest.id} className="flex items-center gap-2 rounded-lg bg-background p-2">
-                              <div
-                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm"
-                                style={{ backgroundColor: cat.color + "20" }}
-                              >
-                                {cat.icon}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-medium">{quest.title}</p>
-                                <p className="text-xs text-muted">{quest.xp} XP</p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted italic">
-                        {day.distanceKm > 0 ? "Travel day" : "Free day to explore"}
-                      </p>
-                    )}
-
-                    {day.hotel && (
-                      <div className="flex items-center gap-2 rounded-lg bg-accent/10 p-2">
-                        <span className="text-lg">🏨</span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{day.hotel.name}</p>
-                          <p className="text-xs text-accent">~{day.hotel.estimatedPrice}€/night</p>
+                  {isExpanded && (
+                    <div className="border-t border-border p-3 space-y-2">
+                      {day.distanceKm > 0 && (
+                        <div className="flex items-center gap-2 text-xs text-muted">
+                          <span>{day.isReturnDay ? "🔙" : "🚗"}</span>
+                          <span>{day.distanceKm} km · ~{formatDuration(day.durationMinutes)}</span>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+                      )}
+
+                      {day.quests.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {day.quests.map((quest) => {
+                            const cat = QUEST_CATEGORIES[quest.category];
+                            return (
+                              <div key={quest.id} className="flex items-center gap-2 rounded-lg bg-background p-2">
+                                <div
+                                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm"
+                                  style={{ backgroundColor: cat.color + "20" }}
+                                >
+                                  {cat.icon}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-medium">{quest.title}</p>
+                                  <p className="text-xs text-muted">{quest.xp} XP</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted italic">
+                          {day.distanceKm > 0 ? "Travel day" : "Free day to explore"}
+                        </p>
+                      )}
+
+                      {day.hotel && (
+                        <div className="flex items-center gap-2 rounded-lg bg-accent/10 p-2">
+                          <span className="text-lg">🏨</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{day.hotel.name}</p>
+                            <p className="text-xs text-accent">~{day.hotel.estimatedPrice}€/night</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Navigate Day link */}
+                      {day.quests.length > 0 && (
+                        <a
+                          href={buildGoogleMapsUrl(
+                            day.day === 1
+                              ? trip.origin
+                              : trip.itinerary[day.day - 2]?.hotel
+                                ? { lat: trip.itinerary[day.day - 2].hotel!.lat, lng: trip.itinerary[day.day - 2].hotel!.lng, name: "" }
+                                : trip.origin,
+                            day.hotel
+                              ? { lat: day.hotel.lat, lng: day.hotel.lng, name: day.hotel.name }
+                              : day.isReturnDay
+                                ? trip.origin
+                                : trip.destination,
+                            day.quests
+                          )}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/30 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/5"
+                        >
+                          Navigate Day {day.day} →
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </aside>
 
@@ -207,7 +261,7 @@ export default function TripResultPage() {
       </div>
 
       {/* Mobile Tab Bar */}
-      <div className="flex sm:hidden border-t border-border" role="tablist">
+      <div className="flex sm:hidden border-t border-border" role="tablist" aria-label="View mode">
         <button
           onClick={() => setMobileTab("list")}
           role="tab"

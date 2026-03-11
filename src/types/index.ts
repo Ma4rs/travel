@@ -27,6 +27,8 @@ export interface CompletedQuestData {
   questId: string;
   photoUrl: string;
   completedAt: string;
+  title?: string;
+  category?: QuestCategory;
 }
 
 export interface RoutePoint {

@@ -69,6 +69,7 @@ export default function TripsPage() {
         <div className="mx-auto flex max-w-4xl items-center gap-4">
           <Link
             href="/"
+            aria-label="Back to home"
             className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted transition-colors hover:text-foreground"
           >
             ←

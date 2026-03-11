@@ -439,6 +439,7 @@ export default function RoutePage() {
       <header className="flex items-center gap-4 border-b border-border px-4 sm:px-6 py-3">
         <Link
           href="/"
+          aria-label="Back to home"
           className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted transition-colors hover:text-foreground"
         >
           ←

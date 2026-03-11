@@ -23,12 +23,26 @@ export default function AlbumPage() {
 
   function openQuest(questId: string) {
     const curated = QUEST_BY_ID[questId];
+    const entry = completedQuests[questId];
     if (curated) {
       setSelectedQuest({
         ...curated,
         detourMinutes: 0,
         completed: true,
-        photoUrl: completedQuests[questId]?.photoUrl,
+        photoUrl: entry?.photoUrl,
+      });
+    } else if (entry) {
+      setSelectedQuest({
+        id: questId,
+        title: entry.title || questId,
+        description: "Completed quest",
+        category: entry.category || "hidden_gem",
+        lat: 0,
+        lng: 0,
+        detourMinutes: 0,
+        xp: 50,
+        completed: true,
+        photoUrl: entry.photoUrl,
       });
     }
   }
@@ -40,6 +54,7 @@ export default function AlbumPage() {
         <div className="mx-auto flex max-w-5xl items-center gap-4">
           <Link
             href="/"
+            aria-label="Back to home"
             className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted transition-colors hover:text-foreground"
           >
             ←
@@ -74,15 +89,15 @@ export default function AlbumPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {entries.map((entry) => {
               const curated = QUEST_BY_ID[entry.questId];
-              const cat = curated
-                ? QUEST_CATEGORIES[curated.category]
-                : null;
+              const category = curated?.category ?? entry.category;
+              const cat = category ? QUEST_CATEGORIES[category] : null;
+              const title = curated?.title ?? entry.title ?? entry.questId;
 
               return (
                 <AlbumCard
                   key={entry.questId}
                   photoUrl={entry.photoUrl}
-                  title={curated?.title ?? entry.questId}
+                  title={title}
                   icon={cat?.icon}
                   date={entry.completedAt}
                   onClick={() => openQuest(entry.questId)}

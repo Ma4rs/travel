@@ -74,19 +74,24 @@ export const useTripStore = create<TripState>()(
       setIsLoadingRoute: (loading) => set({ isLoadingRoute: loading }),
       setIsLoadingQuests: (loading) => set({ isLoadingQuests: loading }),
       completeQuest: (questId, photoUrl) =>
-        set((state) => ({
-          quests: state.quests.map((q) =>
-            q.id === questId ? { ...q, completed: true, photoUrl } : q
-          ),
-          completedQuests: {
-            ...state.completedQuests,
-            [questId]: {
-              questId,
-              photoUrl,
-              completedAt: new Date().toISOString(),
+        set((state) => {
+          const quest = state.quests.find((q) => q.id === questId);
+          return {
+            quests: state.quests.map((q) =>
+              q.id === questId ? { ...q, completed: true, photoUrl } : q
+            ),
+            completedQuests: {
+              ...state.completedQuests,
+              [questId]: {
+                questId,
+                photoUrl,
+                completedAt: new Date().toISOString(),
+                title: quest?.title,
+                category: quest?.category,
+              },
             },
-          },
-        })),
+          };
+        }),
       completeMainQuest: (questId, photoUrl) => {
         const state = get();
         if (state.completedQuests[questId]) return;
@@ -139,6 +144,7 @@ export const useTripStore = create<TripState>()(
           destination: trip.destination,
           routeGeometry: trip.routeGeometry ?? [],
           quests: trip.quests,
+          selectedQuest: null,
         });
       },
       syncWithCloud: async () => {
