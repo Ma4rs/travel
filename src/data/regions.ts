@@ -288,6 +288,7 @@ const activityQuests: (RegionQuest & { regionId: string })[] =
     lat: a.lat,
     lng: a.lng,
     xp: a.xp,
+    visitMinutes: a.visitMinutes,
     regionId: a.regionId,
   }));
 
