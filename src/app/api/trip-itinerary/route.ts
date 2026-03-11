@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRoute, sampleRoutePoints } from "@/lib/osrm";
 import { findHotelsNearWithPrices } from "@/lib/hotels";
 import { ALL_QUESTS } from "@/data/regions";
-import type { QuestCategory, Quest, ItineraryDay, TransportMode, FuelType } from "@/types";
+import type { QuestCategory, Quest, ItineraryDay, TransportMode, FuelType, Hotel } from "@/types";
 
 export const maxDuration = 60;
 
@@ -224,8 +224,8 @@ export async function POST(request: NextRequest) {
       const overnightLat = isLastOutbound ? destLat : lastQuest?.lat ?? outbound.geometry[Math.min((d + 1) * outGeoPerDay - 1, outGeoLen - 1)][0];
       const overnightLng = isLastOutbound ? destLng : lastQuest?.lng ?? outbound.geometry[Math.min((d + 1) * outGeoPerDay - 1, outGeoLen - 1)][1];
 
-      let hotel = undefined;
-      let hotelOptions: typeof hotel[] = [];
+      let hotel: Hotel | undefined = undefined;
+      let hotelOptions: Hotel[] = [];
       if (d + 1 < validDays) {
         const options = await findHotelsNearWithPrices(overnightLat, overnightLng, destLabel, 5);
         hotelOptions = options;
@@ -252,8 +252,8 @@ export async function POST(request: NextRequest) {
       const dayNum = outboundDays + d + 1;
       const lastDestQuest = dayQuests.length > 0 ? dayQuests[dayQuests.length - 1] : null;
 
-      let hotel = undefined;
-      let hotelOptions: typeof hotel[] = [];
+      let hotel: Hotel | undefined = undefined;
+      let hotelOptions: Hotel[] = [];
       if (dayNum < validDays) {
         const options = await findHotelsNearWithPrices(
           lastDestQuest?.lat ?? destLat,
@@ -289,8 +289,8 @@ export async function POST(request: NextRequest) {
         const dayNum = outboundDays + destDays + d + 1;
         const isLastDay = dayNum === validDays;
 
-        let hotel = undefined;
-        let hotelOptions: typeof hotel[] = [];
+        let hotel: Hotel | undefined = undefined;
+        let hotelOptions: Hotel[] = [];
         if (!isLastDay) {
           const lastRetQuest = dayQuests.length > 0 ? dayQuests[dayQuests.length - 1] : null;
           const searchLat = lastRetQuest?.lat ?? (retGeo.length > 0 ? retGeo[Math.min((d + 1) * retGeoPerDay - 1, retGeo.length - 1)][0] : 0);
