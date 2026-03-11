@@ -129,8 +129,14 @@ export default function QuestDetail({
         <div className="mb-6 flex flex-wrap gap-4 text-sm text-muted">
           {quest.detourMinutes > 0 && (
             <div className="flex items-center gap-1.5">
-              <span>🕐</span>
+              <span>🚗</span>
               <span>+{quest.detourMinutes} min detour</span>
+            </div>
+          )}
+          {quest.visitMinutes && (
+            <div className="flex items-center gap-1.5">
+              <span>🕐</span>
+              <span>~{quest.visitMinutes >= 60 ? `${Math.floor(quest.visitMinutes / 60)}h${quest.visitMinutes % 60 > 0 ? ` ${quest.visitMinutes % 60}min` : ""}` : `${quest.visitMinutes} min`} visit</span>
             </div>
           )}
           {quest.address && (

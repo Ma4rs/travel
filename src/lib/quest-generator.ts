@@ -74,6 +74,7 @@ function findCuratedQuestsAlongRoute(
         lng: q.lng,
         detourMinutes,
         xp: q.xp,
+        visitMinutes: q.visitMinutes,
       } satisfies Quest;
     })
     .filter((q) => q.detourMinutes <= maxDetourMinutes)

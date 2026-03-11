@@ -88,6 +88,12 @@ export default function QuestCard({
               <span>+{quest.detourMinutes} min</span>
               <span>·</span>
               <span>{quest.xp} XP</span>
+              {quest.visitMinutes && (
+                <>
+                  <span>·</span>
+                  <span>{quest.visitMinutes >= 60 ? `${Math.floor(quest.visitMinutes / 60)}h` : `${quest.visitMinutes}min`}</span>
+                </>
+              )}
               {weather && (
                 <>
                   <span>·</span>
