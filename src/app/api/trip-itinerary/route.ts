@@ -220,9 +220,9 @@ export async function POST(request: NextRequest) {
     for (let d = 0; d < outboundDays; d++) {
       const dayQuests = outboundByDay[d];
       const isLastOutbound = d === outboundDays - 1;
-      const segEnd = Math.min((d + 1) * outGeoPerDay - 1, outGeoLen - 1);
-      const overnightLat = isLastOutbound ? destLat : outbound.geometry[segEnd][0];
-      const overnightLng = isLastOutbound ? destLng : outbound.geometry[segEnd][1];
+      const lastQuest = dayQuests.length > 0 ? dayQuests[dayQuests.length - 1] : null;
+      const overnightLat = isLastOutbound ? destLat : lastQuest?.lat ?? outbound.geometry[Math.min((d + 1) * outGeoPerDay - 1, outGeoLen - 1)][0];
+      const overnightLng = isLastOutbound ? destLng : lastQuest?.lng ?? outbound.geometry[Math.min((d + 1) * outGeoPerDay - 1, outGeoLen - 1)][1];
 
       let hotel = undefined;
       if (d + 1 < validDays) {
@@ -246,10 +246,15 @@ export async function POST(request: NextRequest) {
     for (let d = 0; d < destDays; d++) {
       const dayQuests = destByDay[d] ?? [];
       const dayNum = outboundDays + d + 1;
+      const lastDestQuest = dayQuests.length > 0 ? dayQuests[dayQuests.length - 1] : null;
 
       let hotel = undefined;
       if (dayNum < validDays) {
-        hotel = await findBestHotelNear(destLat, destLng, destLabel);
+        hotel = await findBestHotelNear(
+          lastDestQuest?.lat ?? destLat,
+          lastDestQuest?.lng ?? destLng,
+          destLabel
+        );
       }
 
       itinerary.push({
@@ -277,9 +282,14 @@ export async function POST(request: NextRequest) {
         const isLastDay = dayNum === validDays;
 
         let hotel = undefined;
-        if (!isLastDay && retGeo.length > 0) {
-          const segEnd = Math.min((d + 1) * retGeoPerDay - 1, retGeo.length - 1);
-          hotel = await findBestHotelNear(retGeo[segEnd][0], retGeo[segEnd][1], "Germany");
+        if (!isLastDay) {
+          const lastRetQuest = dayQuests.length > 0 ? dayQuests[dayQuests.length - 1] : null;
+          if (lastRetQuest) {
+            hotel = await findBestHotelNear(lastRetQuest.lat, lastRetQuest.lng, "Germany");
+          } else if (retGeo.length > 0) {
+            const segEnd = Math.min((d + 1) * retGeoPerDay - 1, retGeo.length - 1);
+            hotel = await findBestHotelNear(retGeo[segEnd][0], retGeo[segEnd][1], "Germany");
+          }
         }
 
         itinerary.push({

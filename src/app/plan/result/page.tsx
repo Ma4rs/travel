@@ -50,31 +50,93 @@ export default function TripResultPage() {
     if (!trip) return;
     setIsRecalculating(true);
     try {
-      const res = await fetch("/api/trip-itinerary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          originLat: trip.origin.lat,
-          originLng: trip.origin.lng,
-          originName: trip.origin.name,
-          destLat: trip.destination.lat,
-          destLng: trip.destination.lng,
-          destName: trip.destination.name,
-          days: trip.days,
-          interests: [],
-          transportMode: trip.transportMode,
-          fuelType: "petrol",
-          hasDeutschlandticket: false,
-          isRoundTrip: trip.isRoundTrip,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        useTripStore.setState({ plannedTrip: data });
-        setHasChanges(false);
+      const updatedItinerary = [...trip.itinerary];
+      let totalDist = 0;
+      let totalDur = 0;
+
+      for (let i = 0; i < updatedItinerary.length; i++) {
+        const day = updatedItinerary[i];
+        const isLastDay = i === updatedItinerary.length - 1;
+
+        // Determine start and end for this day's route
+        const prevDay = i > 0 ? updatedItinerary[i - 1] : null;
+        const dayStart = i === 0
+          ? trip.origin
+          : prevDay?.hotel
+            ? { lat: prevDay.hotel.lat, lng: prevDay.hotel.lng }
+            : prevDay?.quests.length
+              ? { lat: prevDay.quests[prevDay.quests.length - 1].lat, lng: prevDay.quests[prevDay.quests.length - 1].lng }
+              : trip.origin;
+
+        const dayEnd = day.isReturnDay && isLastDay
+          ? trip.origin
+          : day.isReturnDay
+            ? (day.quests.length > 0 ? { lat: day.quests[day.quests.length - 1].lat, lng: day.quests[day.quests.length - 1].lng } : trip.origin)
+            : trip.destination;
+
+        // Recalculate route for this day if it has quests
+        if (day.quests.length > 0 || day.distanceKm > 0) {
+          try {
+            const routeRes = await fetch("/api/calc-route", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                origin: dayStart,
+                destination: dayEnd,
+                waypoints: day.quests.map((q) => ({ lat: q.lat, lng: q.lng })),
+              }),
+            });
+            if (routeRes.ok) {
+              const routeData = await routeRes.json();
+              updatedItinerary[i] = {
+                ...day,
+                distanceKm: Math.round(routeData.distance / 1000),
+                durationMinutes: Math.round(routeData.duration / 60),
+              };
+              totalDist += routeData.distance / 1000;
+              totalDur += routeData.duration / 60;
+            }
+          } catch {
+            // Keep existing route data
+          }
+        }
+
+        // Find hotel near the last quest of this day (not the last day)
+        if (!isLastDay && day.quests.length > 0) {
+          const lastQuest = day.quests[day.quests.length - 1];
+          try {
+            const hotelRes = await fetch("/api/find-hotel", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                lat: lastQuest.lat,
+                lng: lastQuest.lng,
+                regionName: trip.destination.name || "Germany",
+              }),
+            });
+            if (hotelRes.ok) {
+              const hotelData = await hotelRes.json();
+              updatedItinerary[i] = {
+                ...updatedItinerary[i],
+                hotel: hotelData.hotel ?? undefined,
+              };
+            }
+          } catch {
+            // Keep existing hotel
+          }
+        }
       }
+
+      const updatedTrip = {
+        ...trip,
+        itinerary: updatedItinerary,
+        totalDistance: Math.round(totalDist),
+        totalDuration: Math.round(totalDur),
+      };
+      useTripStore.setState({ plannedTrip: updatedTrip });
+      setHasChanges(false);
     } catch {
-      // Recalculation failed silently
+      // Recalculation failed
     } finally {
       setIsRecalculating(false);
     }

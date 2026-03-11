@@ -124,11 +124,13 @@ export async function findBestHotelNear(
   lng: number,
   regionName: string
 ): Promise<Hotel | undefined> {
-  const rawHotels = await findHotelsNear(lat, lng);
+  let rawHotels = await findHotelsNear(lat, lng, 15000);
+  if (rawHotels.length === 0) {
+    rawHotels = await findHotelsNear(lat, lng, 30000);
+  }
   if (rawHotels.length === 0) return undefined;
 
   const withPrices = await estimateHotelPrices(rawHotels, regionName);
-  // Prefer hotels over hostels, pick cheapest hotel
   const hotels = withPrices.filter((h) => h.type === "hotel");
   const sorted = (hotels.length > 0 ? hotels : withPrices).sort(
     (a, b) => a.estimatedPrice - b.estimatedPrice
