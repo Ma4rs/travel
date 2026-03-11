@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import DynamicMap from "@/components/map/DynamicMap";
@@ -354,7 +354,8 @@ export default function RoutePage() {
     }
   }
 
-  // Fetch weather when quests change or trip date changes
+  // Stable quest ID string to avoid refetching weather on selection changes
+  const questIdKey = quests.map((q) => q.id).join(",");
   useEffect(() => {
     if (quests.length === 0) return;
     let cancelled = false;
@@ -369,7 +370,8 @@ export default function RoutePage() {
     });
 
     return () => { cancelled = true; };
-  }, [quests]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questIdKey]);
 
   function handleSaveTrip() {
     const name = saveName.trim() || `${origin?.name ?? "?"} → ${destination?.name ?? "?"}`;
@@ -398,10 +400,10 @@ export default function RoutePage() {
     }
   }
 
-  // Build itinerary when days > 1
-  const itinerary = tripDays > 1 && origin && destination && quests.length > 0
-    ? buildItinerary(quests, origin, destination, tripDays, recalcRoute?.geometry ?? routeGeometry)
-    : null;
+  const itinerary = useMemo(() => {
+    if (tripDays <= 1 || !origin || !destination || quests.length === 0) return null;
+    return buildItinerary(quests, origin, destination, tripDays, recalcRoute?.geometry ?? routeGeometry);
+  }, [tripDays, origin, destination, quests, recalcRoute, routeGeometry]);
 
   // Sort quests: selected first (in route order if recalculated), then unselected
   const displayGeometry = recalcRoute ? recalcRoute.geometry : routeGeometry;

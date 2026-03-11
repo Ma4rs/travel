@@ -90,8 +90,12 @@ export default function PlanPage() {
   }
 
   async function handlePlanThisTrip(trip: TripSuggestion) {
-    if (!startPoint) return;
+    if (!startPoint) {
+      setError("Start location not found. Please search again.");
+      return;
+    }
     setPlanningTrip(trip.destination);
+    setError(null);
 
     try {
       const res = await fetch("/api/trip-itinerary", {
@@ -113,13 +117,16 @@ export default function PlanPage() {
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to build itinerary");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to build itinerary");
+      }
 
       const data = await res.json();
-      const encoded = encodeURIComponent(JSON.stringify(data));
-      router.push(`/plan/result?data=${encoded}`);
-    } catch {
-      setError("Could not build itinerary. Try again.");
+      sessionStorage.setItem("planned-trip", JSON.stringify(data));
+      router.push("/plan/result");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not build itinerary. Try again.");
     } finally {
       setPlanningTrip(null);
     }
@@ -192,6 +199,7 @@ export default function PlanPage() {
                 min={1}
                 max={14}
                 className="w-full rounded-xl border border-border bg-background py-3 px-4 text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                aria-label="Number of days"
               />
             </div>
 

@@ -216,9 +216,11 @@ export async function POST(request: NextRequest) {
         let hotel = undefined;
         if (!isLastDay) {
           const retGeo = returnRoute.geometry;
-          const retGeoPerDay = Math.ceil(retGeo.length / returnDays);
-          const segEnd = Math.min((d + 1) * retGeoPerDay - 1, retGeo.length - 1);
-          hotel = await findBestHotelNear(retGeo[segEnd][0], retGeo[segEnd][1], "Germany");
+          if (retGeo.length > 0) {
+            const retGeoPerDay = Math.max(1, Math.ceil(retGeo.length / returnDays));
+            const segEnd = Math.min((d + 1) * retGeoPerDay - 1, retGeo.length - 1);
+            hotel = await findBestHotelNear(retGeo[segEnd][0], retGeo[segEnd][1], "Germany");
+          }
         }
 
         itinerary.push({

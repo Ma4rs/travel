@@ -167,7 +167,6 @@ export const useTripStore = create<TripState>()(
           maxDetourMinutes: 30,
           isLoadingRoute: false,
           isLoadingQuests: false,
-          savedTrips: [],
           hasSynced: false,
         }),
     }),

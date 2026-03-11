@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import DynamicMap from "@/components/map/DynamicMap";
 import UserMenu from "@/components/UserMenu";
@@ -30,27 +29,37 @@ function buildGoogleMapsUrl(
 }
 
 export default function TripResultPage() {
-  const searchParams = useSearchParams();
   const [trip, setTrip] = useState<PlannedTrip | null>(null);
   const [parseError, setParseError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [expandedDay, setExpandedDay] = useState<number | null>(1);
   const [mobileTab, setMobileTab] = useState<"list" | "map">("list");
+  const [shareToast, setShareToast] = useState<string | null>(null);
 
   useEffect(() => {
-    const raw = searchParams.get("data");
-    if (raw) {
-      try {
-        const parsed = JSON.parse(decodeURIComponent(raw));
+    try {
+      const raw = sessionStorage.getItem("planned-trip");
+      if (raw) {
+        const parsed = JSON.parse(raw);
         if (parsed && parsed.itinerary) {
           setTrip(parsed);
         } else {
           setParseError(true);
         }
-      } catch {
-        setParseError(true);
       }
+    } catch {
+      setParseError(true);
     }
-  }, [searchParams]);
+    setIsLoading(false);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary/30 border-t-primary" />
+      </div>
+    );
+  }
 
   if (!trip) {
     return (
@@ -140,6 +149,27 @@ export default function TripResultPage() {
             {trip.isRoundTrip && (
               <p className="mt-2 text-xs text-muted text-center">Round trip · {trip.totalDistance} km total</p>
             )}
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => {
+                  const url = window.location.origin + "/plan";
+                  if (navigator.share) {
+                    navigator.share({ title: trip.title, text: `Check out this trip: ${trip.title}`, url }).catch(() => {});
+                  } else {
+                    navigator.clipboard.writeText(url).then(() => {
+                      setShareToast("Link copied!");
+                      setTimeout(() => setShareToast(null), 3000);
+                    });
+                  }
+                }}
+                className="flex-1 rounded-lg border border-border py-2 text-xs font-medium text-foreground transition-colors hover:bg-card-hover"
+              >
+                🔗 Share
+              </button>
+            </div>
+            {shareToast && (
+              <p className="mt-1 text-center text-xs font-medium text-secondary">{shareToast}</p>
+            )}
           </div>
 
           {/* Day-by-day itinerary */}
@@ -180,7 +210,7 @@ export default function TripResultPage() {
                       {day.quests.length > 0 ? (
                         <div className="space-y-1.5">
                           {day.quests.map((quest) => {
-                            const cat = QUEST_CATEGORIES[quest.category];
+                            const cat = QUEST_CATEGORIES[quest.category] ?? QUEST_CATEGORIES.hidden_gem;
                             return (
                               <div key={quest.id} className="flex items-center gap-2 rounded-lg bg-background p-2">
                                 <div

@@ -32,7 +32,7 @@ export default function QuestCard({
   onToggleSelect,
   weather,
 }: QuestCardProps) {
-  const cat = QUEST_CATEGORIES[quest.category];
+  const cat = QUEST_CATEGORIES[quest.category] ?? QUEST_CATEGORIES.hidden_gem;
   const isSelectable = selected !== undefined;
 
   if (compact) {

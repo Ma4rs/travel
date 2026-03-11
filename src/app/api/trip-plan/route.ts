@@ -27,12 +27,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validBudget = typeof budget === "number"
+    const validBudget = typeof budget === "number" && Number.isFinite(budget)
       ? Math.min(100000, Math.max(1, budget))
       : 500;
 
     const validDays = typeof days === "number"
-      ? Math.min(30, Math.max(1, Math.round(days)))
+      ? Math.min(14, Math.max(1, Math.round(days)))
       : 3;
 
     const validInterests = Array.isArray(interests)
