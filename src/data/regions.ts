@@ -1,4 +1,5 @@
 import type { Region, RegionQuest } from "@/types";
+import { ACTIVITIES } from "./activities";
 
 export const REGIONS: Region[] = [
   {
@@ -275,8 +276,25 @@ export const REGIONS: Region[] = [
   },
 ];
 
-export const ALL_QUESTS: (RegionQuest & { regionId: string })[] =
+const regionQuests: (RegionQuest & { regionId: string })[] =
   REGIONS.flatMap((r) => r.quests.map((q) => ({ ...q, regionId: r.id })));
+
+const activityQuests: (RegionQuest & { regionId: string })[] =
+  ACTIVITIES.map((a) => ({
+    id: a.id,
+    title: a.title,
+    description: a.description,
+    category: a.category,
+    lat: a.lat,
+    lng: a.lng,
+    xp: a.xp,
+    regionId: a.regionId,
+  }));
+
+export const ALL_QUESTS: (RegionQuest & { regionId: string })[] = [
+  ...regionQuests,
+  ...activityQuests,
+];
 
 export const QUEST_BY_ID: Record<string, RegionQuest & { regionId: string }> =
   Object.fromEntries(ALL_QUESTS.map((q) => [q.id, q]));

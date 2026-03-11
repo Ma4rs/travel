@@ -6,7 +6,8 @@ export type QuestCategory =
   | "photo_spot"
   | "weird"
   | "nature"
-  | "culture";
+  | "culture"
+  | "activity";
 
 export interface Quest {
   id: string;
@@ -170,4 +171,5 @@ export const QUEST_CATEGORIES: Record<
   weird: { label: "Weird & Wonderful", icon: "🎪", color: "#F97316" },
   nature: { label: "Nature", icon: "🌿", color: "#22C55E" },
   culture: { label: "Culture", icon: "🎭", color: "#3B82F6" },
+  activity: { label: "Activity", icon: "🎢", color: "#E11D48" },
 };

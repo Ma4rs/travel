@@ -6,7 +6,7 @@ export const maxDuration = 60;
 
 const VALID_CATEGORIES: QuestCategory[] = [
   "hidden_gem", "scenic", "food", "history",
-  "photo_spot", "weird", "nature", "culture",
+  "photo_spot", "weird", "nature", "culture", "activity",
 ];
 
 export async function POST(request: NextRequest) {

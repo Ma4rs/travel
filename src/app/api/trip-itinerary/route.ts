@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       originLat, originLng, originName,
       destLat, destLng, destName,
       days, interests, transportMode, fuelType,
-      hasDeutschlandticket, isRoundTrip,
+      hasDeutschlandticket, isRoundTrip, fuelConsumption,
     } = body;
 
     if (!originLat || !destLat) {
@@ -247,9 +247,12 @@ export async function POST(request: NextRequest) {
       outbound.duration / 60 + (returnRoute ? returnRoute.duration / 60 : 0)
     );
 
+    const consumption = (typeof fuelConsumption === "number" && fuelConsumption > 0)
+      ? fuelConsumption
+      : FUEL_CONSUMPTION[validFuel];
     const fuelCostPerKm = validTransport === "train"
       ? TRAIN_COST_PER_KM
-      : (FUEL_CONSUMPTION[validFuel] / 100) * FUEL_PRICE[validFuel];
+      : (consumption / 100) * FUEL_PRICE[validFuel];
     const transportCost = (validTransport === "train" && hasDeutschlandticket)
       ? 0
       : Math.round(totalDistanceKm * fuelCostPerKm);

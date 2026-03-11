@@ -10,11 +10,12 @@ export interface POI {
 }
 
 const POI_TYPES = [
-  `nwr["tourism"~"viewpoint|museum|castle|artwork|attraction"]`,
+  `nwr["tourism"~"viewpoint|museum|castle|artwork|attraction|theme_park"]`,
   `nwr["amenity"~"restaurant|cafe|pub"]["cuisine"]`,
   `nwr["natural"~"peak|waterfall|spring|cave_entrance|beach"]`,
   `nwr["historic"~"castle|monument|memorial|ruins|archaeological_site"]`,
   `nwr["amenity"~"theatre|arts_centre|library"]["name"]`,
+  `nwr["leisure"~"water_park|amusement_arcade|miniature_golf|bowling_alley|ice_rink|climbing_adventure"]["name"]`,
 ];
 
 export async function findPOIsNearPoint(
@@ -112,6 +113,7 @@ function detectPOIType(tags: Record<string, string>): string {
   if (tags.tourism) return tags.tourism;
   if (tags.historic) return tags.historic;
   if (tags.natural) return tags.natural;
+  if (tags.leisure) return tags.leisure;
   if (tags.amenity) return tags.amenity;
   return "unknown";
 }

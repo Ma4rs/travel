@@ -1,12 +1,15 @@
 import { REGIONS } from "@/data/regions";
+import { ACTIVITIES } from "@/data/activities";
 import { fetchWithRetry } from "./retry";
 import type { QuestCategory, TransportMode, FuelType } from "@/types";
+import { haversineKm } from "./utils";
 
 export interface TripSuggestion {
   title: string;
   destination: string;
   description: string;
   questCount: number;
+  activityCount: number;
   totalXP: number;
   estimatedCost: number;
   transportCost: number;
@@ -56,18 +59,21 @@ async function getDrivingDistanceKm(
 export async function planTrips(
   startLat: number,
   startLng: number,
-  budget: number,
+  minBudget: number,
+  maxBudget: number,
   days: number,
   interests: QuestCategory[],
   transportMode: TransportMode,
   hasDeutschlandticket: boolean,
   fuelType: FuelType,
-  isRoundTrip: boolean = true
+  isRoundTrip: boolean = true,
+  fuelConsumption?: number
 ): Promise<TripSuggestion[]> {
+  const consumption = fuelConsumption ?? FUEL_CONSUMPTION[fuelType];
   const fuelCostPerKm =
     transportMode === "train"
       ? TRAIN_COST_PER_KM
-      : (FUEL_CONSUMPTION[fuelType] / 100) * FUEL_PRICE[fuelType];
+      : (consumption / 100) * FUEL_PRICE[fuelType];
 
   const regionsWithQuests = REGIONS.map((region) => {
     const matchingQuests =
@@ -114,11 +120,16 @@ export async function planTrips(
             .join(" and ")}.`
         : `Explore ${r.region.name} and uncover its hidden treasures.`;
 
+    const nearbyActivities = ACTIVITIES.filter(
+      (a) => haversineKm(a.lat, a.lng, r.region.center[0], r.region.center[1]) < 80
+    );
+
     return {
       title: `Explore ${r.region.name}`,
       destination: r.region.name,
       description,
       questCount: r.matchingQuests.length,
+      activityCount: nearbyActivities.length,
       totalXP: r.totalXP,
       estimatedCost,
       transportCost,
@@ -133,7 +144,7 @@ export async function planTrips(
         r.matchingQuests.length * 10 +
         r.totalXP / 10 -
         drivingDistanceKm / 50,
-      fitsbudget: estimatedCost <= budget,
+      fitsbudget: estimatedCost >= minBudget && estimatedCost <= maxBudget,
     };
   });
 

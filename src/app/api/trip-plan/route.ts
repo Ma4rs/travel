@@ -5,13 +5,13 @@ import type { QuestCategory, TransportMode, FuelType } from "@/types";
 
 const VALID_CATEGORIES: QuestCategory[] = [
   "hidden_gem", "scenic", "food", "history",
-  "photo_spot", "weird", "nature", "culture",
+  "photo_spot", "weird", "nature", "culture", "activity",
 ];
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { startLocation, budget, days, interests, transportMode, hasDeutschlandticket, fuelType, isRoundTrip } = body;
+    const { startLocation, minBudget, maxBudget, days, interests, transportMode, hasDeutschlandticket, fuelType, isRoundTrip, fuelConsumption } = body;
 
     if (typeof startLocation !== "string" || !startLocation.trim()) {
       return NextResponse.json(
@@ -27,9 +27,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validBudget = typeof budget === "number" && Number.isFinite(budget)
-      ? Math.min(100000, Math.max(1, budget))
+    const validMinBudget = typeof minBudget === "number" && Number.isFinite(minBudget)
+      ? Math.max(0, minBudget)
+      : 0;
+    const validMaxBudget = typeof maxBudget === "number" && Number.isFinite(maxBudget)
+      ? Math.min(100000, Math.max(validMinBudget, maxBudget))
       : 500;
+    const validFuelConsumption = typeof fuelConsumption === "number" && Number.isFinite(fuelConsumption) && fuelConsumption > 0
+      ? fuelConsumption
+      : undefined;
 
     const validDays = typeof days === "number"
       ? Math.min(14, Math.max(1, Math.round(days)))
@@ -64,13 +70,15 @@ export async function POST(request: NextRequest) {
     const suggestions = await planTrips(
       start.lat,
       start.lng,
-      validBudget,
+      validMinBudget,
+      validMaxBudget,
       validDays,
       validInterests as QuestCategory[],
       validTransportMode,
       validHasDeutschlandticket,
       validFuelType,
-      validRoundTrip
+      validRoundTrip,
+      validFuelConsumption
     );
 
     return NextResponse.json({ suggestions, startPoint: start });
