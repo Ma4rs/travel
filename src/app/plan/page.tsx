@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import InterestFilter from "@/components/InterestFilter";
 import UserMenu from "@/components/UserMenu";
-import type { QuestCategory, TransportMode, FuelType } from "@/types";
+import LocationSearch from "@/components/LocationSearch";
+import { useTripStore } from "@/stores/trip-store";
+import type { QuestCategory, TransportMode, FuelType, RoutePoint } from "@/types";
 
 interface TripSuggestion {
   title: string;
@@ -24,15 +26,13 @@ interface TripSuggestion {
   fuelType: FuelType;
 }
 
-interface StartPoint {
-  lat: number;
-  lng: number;
-  name: string;
-}
+
+const COOLDOWN_SECONDS = 15;
 
 export default function PlanPage() {
   const router = useRouter();
-  const [startLocation, setStartLocation] = useState("");
+  const { setPlannedTrip } = useTripStore();
+  const [startPoint, setStartPoint] = useState<RoutePoint | null>(null);
   const [budget, setBudget] = useState(500);
   const [days, setDays] = useState(3);
   const [interests, setInterests] = useState<QuestCategory[]>([]);
@@ -41,10 +41,31 @@ export default function PlanPage() {
   const [fuelType, setFuelType] = useState<FuelType>("petrol");
   const [isRoundTrip, setIsRoundTrip] = useState(true);
   const [suggestions, setSuggestions] = useState<TripSuggestion[]>([]);
-  const [startPoint, setStartPoint] = useState<StartPoint | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [planningTrip, setPlanningTrip] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+  const cooldownInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startCooldown = useCallback(() => {
+    if (cooldownInterval.current) clearInterval(cooldownInterval.current);
+    setCooldown(COOLDOWN_SECONDS);
+    cooldownInterval.current = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          if (cooldownInterval.current) clearInterval(cooldownInterval.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (cooldownInterval.current) clearInterval(cooldownInterval.current);
+    };
+  }, []);
 
   function toggleInterest(cat: QuestCategory) {
     setInterests((prev) =>
@@ -53,7 +74,7 @@ export default function PlanPage() {
   }
 
   async function handlePlanTrip() {
-    if (!startLocation) return;
+    if (!startPoint) return;
 
     setError(null);
     setIsLoading(true);
@@ -64,7 +85,7 @@ export default function PlanPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          startLocation,
+          startLocation: startPoint.name,
           budget,
           days,
           interests,
@@ -75,13 +96,13 @@ export default function PlanPage() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Failed to plan trip");
       }
 
       const data = await res.json();
       setSuggestions(data.suggestions);
-      setStartPoint(data.startPoint);
+      startCooldown();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -123,7 +144,7 @@ export default function PlanPage() {
       }
 
       const data = await res.json();
-      sessionStorage.setItem("planned-trip", JSON.stringify(data));
+      setPlannedTrip(data);
       router.push("/plan/result");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not build itinerary. Try again.");
@@ -160,19 +181,13 @@ export default function PlanPage() {
         <div className="mb-8 rounded-2xl border border-border bg-card p-6">
           <div className="grid gap-6 sm:grid-cols-3">
             <div className="sm:col-span-3">
-              <label className="mb-1.5 block text-sm font-medium text-muted">
-                Where do you live?
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg">🏠</span>
-                <input
-                  type="text"
-                  value={startLocation}
-                  onChange={(e) => setStartLocation(e.target.value)}
-                  placeholder="e.g. Stuttgart, Munich, Berlin..."
-                  className="w-full rounded-xl border border-border bg-background py-3 pl-10 pr-4 text-foreground placeholder:text-muted/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
+              <LocationSearch
+                label="Where do you live?"
+                placeholder="e.g. Stuttgart, Munich, Berlin..."
+                value={startPoint}
+                onSelect={setStartPoint}
+                icon="🏠"
+              />
             </div>
 
             <div>
@@ -206,7 +221,7 @@ export default function PlanPage() {
             <div className="flex items-end">
               <button
                 onClick={handlePlanTrip}
-                disabled={!startLocation || isLoading}
+                disabled={!startPoint || isLoading || cooldown > 0}
                 className="w-full rounded-xl bg-primary py-3 font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
@@ -214,6 +229,8 @@ export default function PlanPage() {
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                     Searching...
                   </span>
+                ) : cooldown > 0 ? (
+                  `Wait ${cooldown}s...`
                 ) : (
                   "Plan My Trip"
                 )}
@@ -223,9 +240,11 @@ export default function PlanPage() {
 
           {/* Transport mode */}
           <div className="mt-6 space-y-3">
-            <div className="flex items-center gap-1 rounded-lg border border-border p-0.5 w-fit">
+            <div className="flex items-center gap-1 rounded-lg border border-border p-0.5 w-fit" role="radiogroup" aria-label="Transport mode">
               <button
                 onClick={() => setTransportMode("car")}
+                role="radio"
+                aria-checked={transportMode === "car"}
                 className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
                   transportMode === "car" ? "bg-primary text-white" : "text-muted hover:text-foreground"
                 }`}
@@ -234,6 +253,8 @@ export default function PlanPage() {
               </button>
               <button
                 onClick={() => setTransportMode("train")}
+                role="radio"
+                aria-checked={transportMode === "train"}
                 className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
                   transportMode === "train" ? "bg-primary text-white" : "text-muted hover:text-foreground"
                 }`}

@@ -6,6 +6,7 @@ import type {
   Trip,
   QuestCategory,
   CompletedQuestData,
+  PlannedTrip,
 } from "@/types";
 import { syncQuestCompletion, mergeLocalWithRemote } from "@/lib/sync";
 
@@ -20,10 +21,12 @@ interface TripState {
   isLoadingRoute: boolean;
   isLoadingQuests: boolean;
   savedTrips: Trip[];
+  plannedTrip: PlannedTrip | null;
   completedQuests: Record<string, CompletedQuestData>;
   hasSynced: boolean;
 
   completedQuestIds: () => string[];
+  setPlannedTrip: (trip: PlannedTrip | null) => void;
   setOrigin: (point: RoutePoint | null) => void;
   setDestination: (point: RoutePoint | null) => void;
   setRouteGeometry: (geometry: [number, number][]) => void;
@@ -55,10 +58,12 @@ export const useTripStore = create<TripState>()(
       isLoadingRoute: false,
       isLoadingQuests: false,
       savedTrips: [],
+      plannedTrip: null,
       completedQuests: {},
       hasSynced: false,
 
       completedQuestIds: () => Object.keys(get().completedQuests),
+      setPlannedTrip: (trip) => set({ plannedTrip: trip }),
       setOrigin: (point) => set({ origin: point }),
       setDestination: (point) => set({ destination: point }),
       setRouteGeometry: (geometry) => set({ routeGeometry: geometry }),
@@ -176,6 +181,7 @@ export const useTripStore = create<TripState>()(
       partialize: (state) => ({
         completedQuests: state.completedQuests,
         savedTrips: state.savedTrips,
+        plannedTrip: state.plannedTrip,
       }),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;

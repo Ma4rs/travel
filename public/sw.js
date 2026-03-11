@@ -8,6 +8,7 @@ const PRECACHE_URLS = [
   `/album?v=${CACHE_VERSION}`,
   `/plan?v=${CACHE_VERSION}`,
   `/route?v=${CACHE_VERSION}`,
+  "/offline.html",
 ];
 
 self.addEventListener("install", (event) => {
@@ -70,6 +71,14 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       })
-      .catch(() => caches.match(request))
+      .catch(() =>
+        caches.match(request).then((cached) => {
+          if (cached) return cached;
+          if (request.mode === "navigate") {
+            return caches.match("/offline.html");
+          }
+          return cached;
+        })
+      )
   );
 });

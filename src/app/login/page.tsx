@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
@@ -11,7 +12,28 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [resetSent, setResetSent] = useState(false);
   const router = useRouter();
+
+  async function handleForgotPassword() {
+    if (!email) {
+      setError("Enter your email address first.");
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + "/login",
+    });
+    if (error) {
+      setError(error.message);
+    } else {
+      setResetSent(true);
+      setSuccessMessage("Password reset email sent. Check your inbox.");
+    }
+    setLoading(false);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,6 +72,9 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-6">
       <div className="w-full max-w-sm">
+        <Link href="/" className="mb-4 flex items-center justify-center gap-2 text-sm text-muted hover:text-foreground transition-colors" aria-label="Back to home">
+          ← Back to home
+        </Link>
         <div className="mb-8 text-center">
           <h1 className="mb-2 text-3xl font-bold">
             Travel
@@ -103,6 +128,17 @@ export default function LoginPage() {
               className="w-full rounded-xl border border-border bg-card py-3 px-4 text-foreground placeholder:text-muted/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
+
+          {!isSignUp && !resetSent && (
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={loading}
+              className="text-xs text-primary hover:underline disabled:opacity-50"
+            >
+              Forgot password?
+            </button>
+          )}
 
           {error && (
             <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-400">

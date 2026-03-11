@@ -13,23 +13,10 @@ import { useTripStore } from "@/stores/trip-store";
 import type { Quest, RoutePoint, WeatherData, QuestCategory } from "@/types";
 import { fetchWeatherForLocations } from "@/lib/weather";
 import { buildItinerary } from "@/lib/itinerary";
+import { buildGoogleMapsUrl, formatDuration, formatDistance } from "@/lib/utils";
 
 const COOLDOWN_SECONDS = 15;
 const MAX_WAYPOINTS = 25;
-
-function buildGoogleMapsUrl(
-  origin: RoutePoint,
-  destination: RoutePoint,
-  quests: Quest[]
-): string {
-  const base = "https://www.google.com/maps/dir/";
-  const waypoints = [
-    `${origin.lat},${origin.lng}`,
-    ...quests.map((q) => `${q.lat},${q.lng}`),
-    `${destination.lat},${destination.lng}`,
-  ];
-  return base + waypoints.join("/");
-}
 
 function findClosestRouteIndex(
   lat: number,
@@ -57,17 +44,6 @@ function sortQuestsByRoute(
     const bIdx = findClosestRouteIndex(b.lat, b.lng, geometry);
     return aIdx - bIdx;
   });
-}
-
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const mins = Math.round((seconds % 3600) / 60);
-  if (hours === 0) return `${mins} min`;
-  return `${hours}h ${mins}min`;
-}
-
-function formatDistance(meters: number): string {
-  return `${Math.round(meters / 1000)} km`;
 }
 
 export default function RoutePage() {

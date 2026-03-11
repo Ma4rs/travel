@@ -1,4 +1,5 @@
 import { REGIONS } from "@/data/regions";
+import { fetchWithRetry } from "./retry";
 import type { QuestCategory, TransportMode, FuelType } from "@/types";
 
 export interface TripSuggestion {
@@ -31,7 +32,7 @@ async function getDrivingDistanceKm(
 ): Promise<number> {
   try {
     const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=false`;
-    const res = await fetch(url);
+    const res = await fetchWithRetry(url);
     if (!res.ok) throw new Error("OSRM failed");
     const data = await res.json();
     if (data.routes?.[0]?.distance) {

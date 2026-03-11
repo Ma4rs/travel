@@ -1,6 +1,9 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { Quest, QuestCategory } from "@/types";
+import { QUEST_CATEGORIES } from "@/types";
 import type { POI } from "./overpass";
+
+const VALID_CATEGORIES = new Set(Object.keys(QUEST_CATEGORIES));
 
 const GEMINI_TIMEOUT_MS = 45000;
 
@@ -96,11 +99,14 @@ Return ONLY a valid JSON array, no markdown, no explanation. Generate 5-15 quest
     .filter((q) => q.poiIndex >= 1 && q.poiIndex <= slicedPois.length)
     .map((q) => {
       const poi = slicedPois[q.poiIndex - 1];
+      const category: QuestCategory = VALID_CATEGORIES.has(q.category)
+        ? (q.category as QuestCategory)
+        : "hidden_gem";
       return {
-        id: `quest-${poi.id || Math.random().toString(36).slice(2)}`,
+        id: `quest-${poi.id || crypto.randomUUID().slice(0, 8)}`,
         title: q.title,
         description: q.description,
-        category: q.category,
+        category,
         lat: poi.lat,
         lng: poi.lng,
         detourMinutes: q.detourMinutes || 15,

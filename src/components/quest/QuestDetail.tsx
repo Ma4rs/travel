@@ -34,6 +34,8 @@ export default function QuestDetail({
 
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     dialogRef.current?.focus();
 
     function handleKeyDown(e: KeyboardEvent) {
@@ -42,6 +44,7 @@ export default function QuestDetail({
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = prevOverflow;
       prev?.focus();
     };
   }, [onClose]);

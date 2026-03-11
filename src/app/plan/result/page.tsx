@@ -1,79 +1,55 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import DynamicMap from "@/components/map/DynamicMap";
 import UserMenu from "@/components/UserMenu";
-import type { PlannedTrip, Quest, RoutePoint } from "@/types";
+import { useTripStore } from "@/stores/trip-store";
+import type { Quest } from "@/types";
 import { QUEST_CATEGORIES } from "@/types";
-
-function formatDuration(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = Math.round(minutes % 60);
-  if (h === 0) return `${m} min`;
-  return `${h}h ${m}min`;
-}
-
-function buildGoogleMapsUrl(
-  origin: RoutePoint,
-  destination: RoutePoint,
-  quests: Quest[]
-): string {
-  const base = "https://www.google.com/maps/dir/";
-  const waypoints = [
-    `${origin.lat},${origin.lng}`,
-    ...quests.map((q) => `${q.lat},${q.lng}`),
-    `${destination.lat},${destination.lng}`,
-  ];
-  return base + waypoints.join("/");
-}
+import { formatDurationMinutes, buildGoogleMapsUrl } from "@/lib/utils";
 
 export default function TripResultPage() {
-  const [trip, setTrip] = useState<PlannedTrip | null>(null);
-  const [parseError, setParseError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const { plannedTrip: trip, saveTrip, setPlannedTrip } = useTripStore();
   const [expandedDay, setExpandedDay] = useState<number | null>(1);
   const [mobileTab, setMobileTab] = useState<"list" | "map">("list");
   const [shareToast, setShareToast] = useState<string | null>(null);
+  const [saveToast, setSaveToast] = useState<string | null>(null);
 
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem("planned-trip");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.itinerary) {
-          setTrip(parsed);
-        } else {
-          setParseError(true);
-        }
-      }
-    } catch {
-      setParseError(true);
-    }
-    setIsLoading(false);
-  }, []);
+  function handleSaveTrip() {
+    if (!trip) return;
+    // Temporarily set origin/destination so saveTrip can snapshot
+    const store = useTripStore.getState();
+    const prevOrigin = store.origin;
+    const prevDest = store.destination;
+    const prevGeometry = store.routeGeometry;
+    const prevQuests = store.quests;
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary/30 border-t-primary" />
-      </div>
-    );
+    useTripStore.setState({
+      origin: trip.origin,
+      destination: trip.destination,
+      routeGeometry: trip.outboundGeometry,
+      quests: trip.itinerary.flatMap((d) => d.quests),
+    });
+    saveTrip(trip.title);
+    useTripStore.setState({
+      origin: prevOrigin,
+      destination: prevDest,
+      routeGeometry: prevGeometry,
+      quests: prevQuests,
+    });
+
+    setSaveToast("Trip saved to My Trips!");
+    setTimeout(() => setSaveToast(null), 3000);
   }
 
   if (!trip) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="mb-4 text-5xl">{parseError ? "⚠️" : "🗺️"}</div>
-          <h2 className="mb-2 text-lg font-semibold">
-            {parseError ? "Invalid trip data" : "No trip data found"}
-          </h2>
-          <p className="mb-6 text-sm text-muted">
-            {parseError
-              ? "The trip data could not be loaded. Please go back and try again."
-              : "Go back and plan a trip first."}
-          </p>
+          <div className="mb-4 text-5xl">🗺️</div>
+          <h2 className="mb-2 text-lg font-semibold">No trip data found</h2>
+          <p className="mb-6 text-sm text-muted">Go back and plan a trip first.</p>
           <Link
             href="/plan"
             className="rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-hover"
@@ -151,6 +127,12 @@ export default function TripResultPage() {
             )}
             <div className="mt-3 flex gap-2">
               <button
+                onClick={handleSaveTrip}
+                className="flex-1 rounded-lg border border-border py-2 text-xs font-medium text-foreground transition-colors hover:bg-card-hover"
+              >
+                💾 Save
+              </button>
+              <button
                 onClick={() => {
                   const url = window.location.origin + "/plan";
                   if (navigator.share) {
@@ -159,7 +141,7 @@ export default function TripResultPage() {
                     navigator.clipboard.writeText(url).then(() => {
                       setShareToast("Link copied!");
                       setTimeout(() => setShareToast(null), 3000);
-                    });
+                    }).catch(() => {});
                   }
                 }}
                 className="flex-1 rounded-lg border border-border py-2 text-xs font-medium text-foreground transition-colors hover:bg-card-hover"
@@ -167,8 +149,8 @@ export default function TripResultPage() {
                 🔗 Share
               </button>
             </div>
-            {shareToast && (
-              <p className="mt-1 text-center text-xs font-medium text-secondary">{shareToast}</p>
+            {(saveToast || shareToast) && (
+              <p className="mt-1 text-center text-xs font-medium text-secondary">{saveToast || shareToast}</p>
             )}
           </div>
 
@@ -203,7 +185,7 @@ export default function TripResultPage() {
                       {day.distanceKm > 0 && (
                         <div className="flex items-center gap-2 text-xs text-muted">
                           <span>{day.isReturnDay ? "🔙" : "🚗"}</span>
-                          <span>{day.distanceKm} km · ~{formatDuration(day.durationMinutes)}</span>
+                          <span>{day.distanceKm} km · ~{formatDurationMinutes(day.durationMinutes)}</span>
                         </div>
                       )}
 

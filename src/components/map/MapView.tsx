@@ -103,16 +103,20 @@ export default function MapView({
     markersRef.current.clearLayers();
 
     quests.forEach((quest) => {
-      const cat = QUEST_CATEGORIES[quest.category];
-      const photoUrl = completedQuests?.[quest.id]?.photoUrl || quest.photoUrl;
+      const cat = QUEST_CATEGORIES[quest.category] ?? QUEST_CATEGORIES.hidden_gem;
+      const rawPhotoUrl = completedQuests?.[quest.id]?.photoUrl || quest.photoUrl;
       const isCompleted = quest.completed || !!completedQuests?.[quest.id];
       const isSelected = !selectedQuestIds || selectedQuestIds.has(quest.id);
       const markerColor = isSelected ? cat.color : "#9CA3AF";
       const markerOpacity = isSelected ? "1" : "0.5";
 
+      const safePhotoUrl = rawPhotoUrl
+        ? rawPhotoUrl.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        : "";
+
       const innerHtml =
-        isCompleted && photoUrl
-          ? `<img src="${photoUrl}" style="width:36px;height:36px;border-radius:50%;border:3px solid #10B981;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;opacity:${markerOpacity};" />`
+        isCompleted && safePhotoUrl
+          ? `<img src="${safePhotoUrl}" style="width:36px;height:36px;border-radius:50%;border:3px solid #10B981;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;opacity:${markerOpacity};" />`
           : `<div style="
               background: ${markerColor};
               width: 36px;

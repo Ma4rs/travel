@@ -7,6 +7,27 @@
   "background_color": "#0a0a0a",
   "theme_color": "#8B5CF6",
   "orientation": "portrait-primary",
+  "id": "/",
+  "shortcuts": [
+    {
+      "name": "Plan a Trip",
+      "short_name": "Plan",
+      "url": "/plan",
+      "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "My Trips",
+      "short_name": "Trips",
+      "url": "/trips",
+      "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Enhance Route",
+      "short_name": "Route",
+      "url": "/route",
+      "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
+    }
+  ],
   "icons": [
     {
       "src": "/icons/icon-192.svg",

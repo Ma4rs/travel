@@ -73,6 +73,8 @@ export default function PhotoUploadDialog({
 
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     dialogRef.current?.focus();
 
     function handleKeyDown(e: KeyboardEvent) {
@@ -81,12 +83,17 @@ export default function PhotoUploadDialog({
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = prevOverflow;
       prev?.focus();
     };
   }, [onClose]);
 
   const handleFileSelected = useCallback(
     (file: File) => {
+      if (file.size > 10 * 1024 * 1024) {
+        setError("File is too large. Maximum size is 10 MB.");
+        return;
+      }
       if (preview) URL.revokeObjectURL(preview);
       setSelectedFile(file);
       setError(null);

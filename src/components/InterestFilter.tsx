@@ -25,6 +25,7 @@ export default function InterestFilter({
               <button
                 key={key}
                 onClick={() => onToggle(key)}
+                aria-pressed={isActive}
                 className="rounded-full border px-3 py-1.5 text-sm transition-all"
                 style={{
                   borderColor: isActive ? cat.color : "var(--border)",
