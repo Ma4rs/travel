@@ -261,10 +261,15 @@ export default function TripResultPage() {
 
                   {isExpanded && (
                     <div className="border-t border-border p-3 space-y-2">
-                      {day.distanceKm > 0 && (
-                        <div className="flex items-center gap-2 text-xs text-muted">
-                          <span>{day.isReturnDay ? "🔙" : "🚗"}</span>
-                          <span>{day.distanceKm} km · ~{formatDurationMinutes(day.durationMinutes)}</span>
+                      {(day.distanceKm > 0 || day.quests.length > 0) && (
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+                          {day.distanceKm > 0 && (
+                            <span>{day.isReturnDay ? "🔙" : "🚗"} {day.distanceKm} km · ~{formatDurationMinutes(day.durationMinutes)} driving</span>
+                          )}
+                          {day.quests.length > 0 && (() => {
+                            const totalVisit = day.quests.reduce((sum, q) => sum + (q.visitMinutes ?? 45), 0);
+                            return <span>🕐 ~{formatDurationMinutes(totalVisit)} activities</span>;
+                          })()}
                         </div>
                       )}
 
@@ -304,7 +309,10 @@ export default function TripResultPage() {
                                   </div>
                                   <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm font-medium">{quest.title}</p>
-                                    <p className="text-xs text-muted">{quest.xp} XP</p>
+                                    <p className="text-xs text-muted">
+                                      {quest.xp} XP
+                                      {quest.visitMinutes ? ` · ~${quest.visitMinutes >= 60 ? `${Math.floor(quest.visitMinutes / 60)}h${quest.visitMinutes % 60 > 0 ? ` ${quest.visitMinutes % 60}min` : ""}` : `${quest.visitMinutes}min`}` : ""}
+                                    </p>
                                   </div>
                                   <button
                                     onClick={(e) => { e.stopPropagation(); removeQuest(day.day, quest.id); }}

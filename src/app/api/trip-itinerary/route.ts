@@ -57,10 +57,52 @@ function findQuestsAlongGeometry(
         lng: q.lng,
         detourMinutes: Math.round(minDist),
         xp: q.xp,
+        visitMinutes: q.visitMinutes,
       } satisfies Quest;
     })
     .filter((q) => q.detourMinutes <= maxDetourKm)
     .sort((a, b) => a.detourMinutes - b.detourMinutes);
+}
+
+const DEFAULT_VISIT_MINUTES: Record<string, number> = {
+  activity: 240,
+  food: 60,
+  scenic: 30,
+  photo_spot: 20,
+  hidden_gem: 45,
+  history: 45,
+  nature: 60,
+  culture: 60,
+  weird: 30,
+};
+
+function getVisitMinutes(quest: Quest): number {
+  return quest.visitMinutes ?? DEFAULT_VISIT_MINUTES[quest.category] ?? 45;
+}
+
+const DAY_BUDGET_MINUTES = 480; // 8 hours of activities per day
+
+function fitQuestsIntoDays(quests: Quest[], numDays: number): Quest[][] {
+  if (numDays <= 0) return [];
+  const days: Quest[][] = Array.from({ length: numDays }, () => []);
+  const dayTime: number[] = new Array(numDays).fill(0);
+
+  for (const quest of quests) {
+    const visit = getVisitMinutes(quest);
+    let bestDay = 0;
+    let bestTime = dayTime[0];
+    for (let d = 0; d < numDays; d++) {
+      if (dayTime[d] < bestTime) {
+        bestDay = d;
+        bestTime = dayTime[d];
+      }
+    }
+    if (dayTime[bestDay] + visit <= DAY_BUDGET_MINUTES || days[bestDay].length === 0) {
+      days[bestDay].push(quest);
+      dayTime[bestDay] += visit;
+    }
+  }
+  return days;
 }
 
 function findClosestGeometryIndex(lat: number, lng: number, geometry: [number, number][]): number {
@@ -103,8 +145,6 @@ export async function POST(request: NextRequest) {
 
     const DEST_EXCLUSION_RADIUS_KM = 50;
     const DEST_SEARCH_RADIUS_KM = 100;
-    const MAX_QUESTS_PER_DEST_DAY = 5;
-
     // Calculate routes
     const outbound = await getRoute(originLat, originLng, destLat, destLng);
     let returnRoute: { geometry: [number, number][]; distance: number; duration: number } | null = null;
@@ -148,6 +188,7 @@ export async function POST(request: NextRequest) {
         category: q.category, lat: q.lat, lng: q.lng,
         detourMinutes: Math.round(haversineKm(q.lat, q.lng, destLat, destLng)),
         xp: q.xp,
+        visitMinutes: q.visitMinutes,
       }))
       .sort((a, b) => a.detourMinutes - b.detourMinutes);
     destQuests.forEach((q) => usedIds.add(q.id));
@@ -169,15 +210,15 @@ export async function POST(request: NextRequest) {
     const itinerary: ItineraryDay[] = [];
     const destLabel = destName || "destination";
 
-    // Outbound days
+    // Outbound days — time-aware assignment
     const outboundDistPerDay = (outbound.distance / 1000) / outboundDays;
     const outboundDurPerDay = (outbound.duration / 60) / outboundDays;
     const outGeoLen = outbound.geometry.length;
     const outGeoPerDay = Math.max(1, Math.ceil(outGeoLen / outboundDays));
-    const questsPerOutDay = Math.max(1, Math.ceil(sortedOutbound.length / outboundDays));
+    const outboundByDay = fitQuestsIntoDays(sortedOutbound, outboundDays);
 
     for (let d = 0; d < outboundDays; d++) {
-      const dayQuests = sortedOutbound.slice(d * questsPerOutDay, (d + 1) * questsPerOutDay);
+      const dayQuests = outboundByDay[d];
       const isLastOutbound = d === outboundDays - 1;
       const segEnd = Math.min((d + 1) * outGeoPerDay - 1, outGeoLen - 1);
       const overnightLat = isLastOutbound ? destLat : outbound.geometry[segEnd][0];
@@ -199,13 +240,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Destination days
-    const questsPerDestDay = destDays > 0
-      ? Math.min(MAX_QUESTS_PER_DEST_DAY, Math.max(1, Math.ceil(destQuests.length / destDays)))
-      : 0;
+    // Destination days — time-aware assignment
+    const destByDay = fitQuestsIntoDays(destQuests, destDays);
 
     for (let d = 0; d < destDays; d++) {
-      const dayQuests = destQuests.slice(d * questsPerDestDay, (d + 1) * questsPerDestDay);
+      const dayQuests = destByDay[d] ?? [];
       const dayNum = outboundDays + d + 1;
 
       let hotel = undefined;
@@ -230,10 +269,10 @@ export async function POST(request: NextRequest) {
       const returnDurPerDay = (returnRoute.duration / 60) / returnDays;
       const retGeo = returnRoute.geometry;
       const retGeoPerDay = retGeo.length > 0 ? Math.max(1, Math.ceil(retGeo.length / returnDays)) : 1;
-      const questsPerRetDay = returnDays > 0 ? Math.max(1, Math.ceil(sortedReturn.length / returnDays)) : 0;
+      const returnByDay = fitQuestsIntoDays(sortedReturn, returnDays);
 
       for (let d = 0; d < returnDays; d++) {
-        const dayQuests = sortedReturn.slice(d * questsPerRetDay, (d + 1) * questsPerRetDay);
+        const dayQuests = returnByDay[d] ?? [];
         const dayNum = outboundDays + destDays + d + 1;
         const isLastDay = dayNum === validDays;
 

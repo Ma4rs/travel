@@ -18,6 +18,7 @@ export interface Quest {
   lng: number;
   detourMinutes: number;
   xp: number;
+  visitMinutes?: number;
   imageUrl?: string;
   address?: string;
   completed?: boolean;
@@ -88,6 +89,7 @@ export interface RegionQuest {
   lat: number;
   lng: number;
   xp: number;
+  visitMinutes?: number;
   photoUrl?: string;
 }
 
