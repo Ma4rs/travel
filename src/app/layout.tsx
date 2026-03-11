@@ -12,6 +12,10 @@ export const metadata: Metadata = {
   description:
     "Discover hidden gems, scenic detours, and local favorites along your route. Your AI-powered road trip companion.",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/icons/icon-192.svg",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
