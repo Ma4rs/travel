@@ -116,9 +116,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Split days: outbound days, destination days, return days
-    const outboundDays = roundTrip ? Math.max(1, Math.floor(validDays / 3)) : Math.max(1, Math.floor(validDays / 2));
-    const returnDays = roundTrip ? Math.max(1, Math.floor(validDays / 3)) : 0;
-    const destDays = validDays - outboundDays - returnDays;
+    const outboundDays = roundTrip
+      ? Math.max(1, Math.floor(validDays / 3))
+      : Math.max(1, Math.floor(validDays / 2));
+    const returnDays = roundTrip
+      ? Math.min(Math.max(1, Math.floor(validDays / 3)), validDays - outboundDays)
+      : 0;
+    const destDays = Math.max(0, validDays - outboundDays - returnDays);
 
     // Assign quests to outbound segments
     const sortedOutbound = [...outboundQuests].sort((a, b) =>

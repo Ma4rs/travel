@@ -11,7 +11,7 @@ const VALID_CATEGORIES: QuestCategory[] = [
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { startLocation, budget, days, interests, transportMode, hasDeutschlandticket, fuelType } = body;
+    const { startLocation, budget, days, interests, transportMode, hasDeutschlandticket, fuelType, isRoundTrip } = body;
 
     if (typeof startLocation !== "string" || !startLocation.trim()) {
       return NextResponse.json(
@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
 
     const start = locations[0];
 
+    const validRoundTrip = typeof isRoundTrip === "boolean" ? isRoundTrip : true;
+
     const suggestions = await planTrips(
       start.lat,
       start.lng,
@@ -67,7 +69,8 @@ export async function POST(request: NextRequest) {
       validInterests as QuestCategory[],
       validTransportMode,
       validHasDeutschlandticket,
-      validFuelType
+      validFuelType,
+      validRoundTrip
     );
 
     return NextResponse.json({ suggestions, startPoint: start });

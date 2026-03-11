@@ -62,6 +62,7 @@ export async function fetchWeatherForLocations(
         // Open-Meteo returns an array for multi-location, single object for one location
         const items = Array.isArray(data) ? data : [data];
         items.forEach((item: { daily?: { weathercode?: number[]; temperature_2m_max?: number[] } }, idx: number) => {
+          if (idx >= batch.length) return;
           const code = item.daily?.weathercode?.[0] ?? 0;
           const temp = item.daily?.temperature_2m_max?.[0] ?? 0;
           const info = weatherCodeToInfo(code);
@@ -76,6 +77,7 @@ export async function fetchWeatherForLocations(
 
         const items = Array.isArray(data) ? data : [data];
         items.forEach((item: { current_weather?: { weathercode?: number; temperature?: number } }, idx: number) => {
+          if (idx >= batch.length) return;
           const code = item.current_weather?.weathercode ?? 0;
           const temp = item.current_weather?.temperature ?? 0;
           const info = weatherCodeToInfo(code);

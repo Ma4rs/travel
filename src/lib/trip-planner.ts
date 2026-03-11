@@ -61,7 +61,8 @@ export async function planTrips(
   interests: QuestCategory[],
   transportMode: TransportMode,
   hasDeutschlandticket: boolean,
-  fuelType: FuelType
+  fuelType: FuelType,
+  isRoundTrip: boolean = true
 ): Promise<TripSuggestion[]> {
   const fuelCostPerKm =
     transportMode === "train"
@@ -95,12 +96,12 @@ export async function planTrips(
 
   const scored = regionsWithQuests.map((r, i) => {
     const drivingDistanceKm = Math.round(distances[i]);
-    const roundTripKm = drivingDistanceKm * 2;
+    const totalTripKm = isRoundTrip ? drivingDistanceKm * 2 : drivingDistanceKm;
 
     const transportCost =
       transportMode === "train" && hasDeutschlandticket
         ? 0
-        : Math.round(roundTripKm * fuelCostPerKm);
+        : Math.round(totalTripKm * fuelCostPerKm);
     const accommodationCost = Math.max(0, days - 1) * ACCOMMODATION_PER_NIGHT;
     const estimatedCost = transportCost + accommodationCost;
 

@@ -92,6 +92,7 @@ export default function PlanPage() {
           transportMode,
           hasDeutschlandticket,
           fuelType,
+          isRoundTrip,
         }),
       });
 
@@ -343,7 +344,7 @@ export default function PlanPage() {
                         <span>🚆 {trip.hasDeutschlandticket ? "Deutschlandticket" : `Train (~${trip.transportCost}€)`}</span>
                       ) : (
                         <span>
-                          {fuelType === "electric" ? "⚡" : "⛽"} {fuelLabel[trip.fuelType]} · {trip.drivingDistanceKm * 2} km {isRoundTrip ? "round trip" : ""} ({trip.transportCost}€)
+                          {trip.fuelType === "electric" ? "⚡" : "⛽"} {fuelLabel[trip.fuelType]} · {isRoundTrip ? trip.drivingDistanceKm * 2 : trip.drivingDistanceKm} km{isRoundTrip ? " round trip" : ""} ({trip.transportCost}€)
                         </span>
                       )}
                       <span>🏨 {nights} {nights === 1 ? "night" : "nights"} ({trip.accommodationCost}€)</span>

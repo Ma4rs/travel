@@ -204,6 +204,10 @@ export default function RoutePage() {
     setSelectedQuestIds(new Set());
     setShowSelectAllWarning(false);
     setSelectionLimitMsg(null);
+    if (originalGeometry.length > 0) {
+      setRouteGeometry(originalGeometry);
+    }
+    setOriginalGeometry([]);
     setRecalcRoute(null);
     setNeedsRecalc(false);
   }
@@ -230,7 +234,9 @@ export default function RoutePage() {
       if (!res.ok) throw new Error("Route calculation failed");
 
       const data = await res.json();
-      setOriginalGeometry(routeGeometry);
+      if (originalGeometry.length === 0) {
+        setOriginalGeometry(routeGeometry);
+      }
       setRouteGeometry(data.geometry);
       setRecalcRoute(data);
       setNeedsRecalc(false);
