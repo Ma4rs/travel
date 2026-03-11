@@ -117,6 +117,7 @@ export interface DayPlan {
   day: number;
   quests: Quest[];
   overnightLocation?: RoutePoint;
+  hotel?: Hotel;
   distanceKm: number;
   durationMinutes: number;
 }

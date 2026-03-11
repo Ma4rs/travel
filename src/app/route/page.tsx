@@ -10,7 +10,7 @@ import QuestCard from "@/components/quest/QuestCard";
 import QuestDetail from "@/components/quest/QuestDetail";
 import UserMenu from "@/components/UserMenu";
 import { useTripStore } from "@/stores/trip-store";
-import type { Quest, RoutePoint, WeatherData, QuestCategory } from "@/types";
+import type { Quest, RoutePoint, WeatherData, QuestCategory, Hotel } from "@/types";
 import { fetchWeatherForLocations } from "@/lib/weather";
 import { buildItinerary } from "@/lib/itinerary";
 import { buildGoogleMapsUrl, formatDuration, formatDistance } from "@/lib/utils";
@@ -101,6 +101,8 @@ export default function RoutePage() {
 
   // Multi-day state
   const [tripDays, setTripDays] = useState(1);
+  const [hotelMap, setHotelMap] = useState<Record<number, Hotel>>({});
+  const [isLoadingHotels, setIsLoadingHotels] = useState(false);
 
   const originRef = useRef(origin);
   const destinationRef = useRef(destination);
@@ -387,6 +389,45 @@ export default function RoutePage() {
     return buildItinerary(quests, origin, destination, tripDays, recalcRoute?.geometry ?? routeGeometry);
   }, [tripDays, origin, destination, quests, recalcRoute, routeGeometry]);
 
+  useEffect(() => {
+    if (!itinerary || itinerary.length <= 1) {
+      setHotelMap({});
+      return;
+    }
+    let cancelled = false;
+    setIsLoadingHotels(true);
+
+    const overnightDays = itinerary.filter((d) => d.overnightLocation && d.day < tripDays);
+    Promise.all(
+      overnightDays.map(async (day) => {
+        const loc = day.overnightLocation!;
+        try {
+          const res = await fetch("/api/find-hotel", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lat: loc.lat, lng: loc.lng, regionName: destination?.name ?? "Germany" }),
+          });
+          if (!res.ok) return { day: day.day, hotel: null };
+          const data = await res.json();
+          return { day: day.day, hotel: data.hotel };
+        } catch {
+          return { day: day.day, hotel: null };
+        }
+      })
+    ).then((results) => {
+      if (cancelled) return;
+      const map: Record<number, Hotel> = {};
+      for (const r of results) {
+        if (r.hotel) map[r.day] = r.hotel;
+      }
+      setHotelMap(map);
+      setIsLoadingHotels(false);
+    });
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itinerary?.length, tripDays]);
+
   // Sort quests: selected first (in route order if recalculated), then unselected
   const displayGeometry = recalcRoute ? recalcRoute.geometry : routeGeometry;
   const selectedSorted = sortQuestsByRoute(
@@ -599,10 +640,20 @@ export default function RoutePage() {
                         </div>
                       )}
                       {dayPlan.overnightLocation && (
-                        <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-accent/10 px-3 py-1.5 text-xs text-accent">
-                          <span>🏨</span>
-                          <span>Overnight near {dayPlan.overnightLocation.name}</span>
-                        </div>
+                        hotelMap[dayPlan.day] ? (
+                          <div className="mt-2 flex items-center gap-2 rounded-lg bg-accent/10 px-3 py-2 text-xs">
+                            <span className="text-lg">🏨</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-foreground">{hotelMap[dayPlan.day].name}</p>
+                              <p className="text-accent">~{hotelMap[dayPlan.day].estimatedPrice}€/night</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-accent/10 px-3 py-1.5 text-xs text-accent">
+                            <span>🏨</span>
+                            <span>{isLoadingHotels ? "Searching hotels..." : `Overnight near ${dayPlan.overnightLocation.name}`}</span>
+                          </div>
+                        )
                       )}
                       {dayPlan.day < tripDays && (
                         <a
