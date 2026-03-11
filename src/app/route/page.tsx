@@ -97,7 +97,6 @@ export default function RoutePage() {
 
   // Weather state
   const [weatherMap, setWeatherMap] = useState<Record<string, WeatherData>>({});
-  const [isLoadingWeather, setIsLoadingWeather] = useState(false);
 
   // Multi-day state
   const [tripDays, setTripDays] = useState(1);
@@ -343,13 +342,11 @@ export default function RoutePage() {
   useEffect(() => {
     if (quests.length === 0) return;
     let cancelled = false;
-    setIsLoadingWeather(true);
 
     const coords = quests.map((q) => ({ lat: q.lat, lng: q.lng, id: q.id }));
     fetchWeatherForLocations(coords).then((data) => {
       if (!cancelled) {
         setWeatherMap(data);
-        setIsLoadingWeather(false);
       }
     });
 
