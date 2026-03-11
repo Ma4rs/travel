@@ -10,7 +10,7 @@ import QuestCard from "@/components/quest/QuestCard";
 import QuestDetail from "@/components/quest/QuestDetail";
 import UserMenu from "@/components/UserMenu";
 import { useTripStore } from "@/stores/trip-store";
-import type { Quest, RoutePoint, WeatherData, QuestCategory, Hotel } from "@/types";
+import type { Quest, WeatherData, QuestCategory, Hotel } from "@/types";
 import { fetchWeatherForLocations } from "@/lib/weather";
 import { buildItinerary } from "@/lib/itinerary";
 import { buildGoogleMapsUrl, formatDuration, formatDistance } from "@/lib/utils";
