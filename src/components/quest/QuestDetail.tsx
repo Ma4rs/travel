@@ -12,6 +12,8 @@ interface QuestDetailProps {
   onComplete?: (questId: string, photoUrl: string) => void;
   photoUrl?: string;
   completedAt?: string;
+  isSelected?: boolean;
+  onToggleSelect?: (questId: string) => void;
 }
 
 export default function QuestDetail({
@@ -20,8 +22,10 @@ export default function QuestDetail({
   onComplete,
   photoUrl,
   completedAt,
+  isSelected,
+  onToggleSelect,
 }: QuestDetailProps) {
-  const cat = QUEST_CATEGORIES[quest.category];
+  const cat = QUEST_CATEGORIES[quest.category] ?? QUEST_CATEGORIES.hidden_gem;
   const [showUpload, setShowUpload] = useState(false);
   const [imgError, setImgError] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -134,7 +138,19 @@ export default function QuestDetail({
           )}
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          {onToggleSelect && (
+            <button
+              onClick={() => onToggleSelect(quest.id)}
+              className={`flex-1 rounded-xl py-3 font-medium transition-colors ${
+                isSelected
+                  ? "border border-red-400/50 text-red-400 hover:bg-red-400/10"
+                  : "bg-secondary text-white hover:bg-secondary/90"
+              }`}
+            >
+              {isSelected ? "Remove from Route" : "Add to Route"}
+            </button>
+          )}
           <a
             href={`https://www.google.com/maps/dir/?api=1&destination=${quest.lat},${quest.lng}`}
             target="_blank"

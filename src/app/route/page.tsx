@@ -839,6 +839,10 @@ export default function RoutePage() {
             completeQuest(questId, photoUrl);
             setSelectedQuest(null);
           }}
+          isSelected={selectedQuestIds.has(selectedQuest.id)}
+          onToggleSelect={(questId) => {
+            toggleQuestSelection(questId);
+          }}
         />
       )}
     </div>
