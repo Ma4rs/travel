@@ -10,29 +10,74 @@ import { QUEST_CATEGORIES } from "@/types";
 import { formatDurationMinutes, buildGoogleMapsUrl } from "@/lib/utils";
 
 export default function TripResultPage() {
-  const { plannedTrip: trip, saveTrip, updatePlannedItinerary } = useTripStore();
+  const { plannedTrip: trip, updatePlannedItinerary } = useTripStore();
   const [expandedDay, setExpandedDay] = useState<number | null>(1);
   const [mobileTab, setMobileTab] = useState<"list" | "map">("list");
   const [shareToast, setShareToast] = useState<string | null>(null);
   const [saveToast, setSaveToast] = useState<string | null>(null);
   const [dragOverDay, setDragOverDay] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
   const dragDataRef = useRef<{ questId: string; fromDay: number } | null>(null);
 
   function handleSaveTrip() {
     if (!trip) return;
+    const allQuests = trip.itinerary.flatMap((d) => d.quests);
     const store = useTripStore.getState();
-    const prev = { origin: store.origin, destination: store.destination, routeGeometry: store.routeGeometry, quests: store.quests };
-    useTripStore.setState({
+    const newId = crypto.randomUUID();
+    const savedTrip = {
+      id: newId,
+      title: trip.title,
       origin: trip.origin,
       destination: trip.destination,
+      waypoints: [],
+      quests: allQuests,
       routeGeometry: trip.outboundGeometry,
-      quests: trip.itinerary.flatMap((d) => d.quests),
+      totalDistance: trip.totalDistance,
+      totalDuration: trip.totalDuration,
+      days: trip.days,
+      createdAt: new Date().toISOString(),
+    };
+    useTripStore.setState({
+      savedTrips: [...store.savedTrips, savedTrip],
     });
-    saveTrip(trip.title);
-    useTripStore.setState(prev);
     setSaveToast("Trip saved!");
     setTimeout(() => setSaveToast(null), 3000);
+  }
+
+  async function handleRecalculate() {
+    if (!trip) return;
+    setIsRecalculating(true);
+    try {
+      const res = await fetch("/api/trip-itinerary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originLat: trip.origin.lat,
+          originLng: trip.origin.lng,
+          originName: trip.origin.name,
+          destLat: trip.destination.lat,
+          destLng: trip.destination.lng,
+          destName: trip.destination.name,
+          days: trip.days,
+          interests: [],
+          transportMode: trip.transportMode,
+          fuelType: "petrol",
+          hasDeutschlandticket: false,
+          isRoundTrip: trip.isRoundTrip,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        useTripStore.setState({ plannedTrip: data });
+        setHasChanges(false);
+      }
+    } catch {
+      // Recalculation failed silently
+    } finally {
+      setIsRecalculating(false);
+    }
   }
 
   const removeQuest = useCallback((dayNum: number, questId: string) => {
@@ -43,6 +88,7 @@ export default function TripResultPage() {
         : day
     );
     updatePlannedItinerary(newItinerary);
+    setHasChanges(true);
   }, [trip, updatePlannedItinerary]);
 
   const moveQuest = useCallback((fromDay: number, toDay: number, questId: string, insertIdx?: number) => {
@@ -75,6 +121,7 @@ export default function TripResultPage() {
     });
 
     updatePlannedItinerary(newItinerary);
+    setHasChanges(true);
   }, [trip, updatePlannedItinerary]);
 
   function handleDragStart(e: React.DragEvent, questId: string, fromDay: number) {
@@ -229,6 +276,22 @@ export default function TripResultPage() {
             {(saveToast || shareToast) && (
               <p className="mt-1 text-center text-xs font-medium text-secondary">{saveToast || shareToast}</p>
             )}
+            {hasChanges && (
+              <button
+                onClick={handleRecalculate}
+                disabled={isRecalculating}
+                className="mt-2 w-full rounded-lg border border-secondary py-2 text-xs font-medium text-secondary transition-colors hover:bg-secondary/10 disabled:opacity-50"
+              >
+                {isRecalculating ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-secondary/30 border-t-secondary" />
+                    Recalculating...
+                  </span>
+                ) : (
+                  "Recalculate Route"
+                )}
+              </button>
+            )}
             <p className="mt-2 text-center text-xs text-muted">Drag quests between days to rearrange</p>
           </div>
 
@@ -364,28 +427,31 @@ export default function TripResultPage() {
                         </div>
                       )}
 
-                      {day.quests.length > 0 && (
+                      {day.quests.length > 0 && (() => {
+                        const prevDay = day.day > 1 ? trip.itinerary[day.day - 2] : null;
+                        const dayStart = day.day === 1
+                          ? trip.origin
+                          : prevDay?.hotel
+                            ? { lat: prevDay.hotel.lat, lng: prevDay.hotel.lng, name: prevDay.hotel.name }
+                            : prevDay?.quests.length
+                              ? { lat: prevDay.quests[prevDay.quests.length - 1].lat, lng: prevDay.quests[prevDay.quests.length - 1].lng, name: "" }
+                              : trip.destination;
+                        const dayEnd = day.hotel
+                          ? { lat: day.hotel.lat, lng: day.hotel.lng, name: day.hotel.name }
+                          : day.isReturnDay
+                            ? trip.origin
+                            : trip.destination;
+                        return (
                         <a
-                          href={buildGoogleMapsUrl(
-                            day.day === 1
-                              ? trip.origin
-                              : trip.itinerary[day.day - 2]?.hotel
-                                ? { lat: trip.itinerary[day.day - 2].hotel!.lat, lng: trip.itinerary[day.day - 2].hotel!.lng, name: "" }
-                                : trip.origin,
-                            day.hotel
-                              ? { lat: day.hotel.lat, lng: day.hotel.lng, name: day.hotel.name }
-                              : day.isReturnDay
-                                ? trip.origin
-                                : trip.destination,
-                            day.quests
-                          )}
+                          href={buildGoogleMapsUrl(dayStart, dayEnd, day.quests)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/30 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/5"
                         >
                           Navigate Day {day.day} →
                         </a>
-                      )}
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
