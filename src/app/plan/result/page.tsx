@@ -51,6 +51,7 @@ export default function TripResultPage() {
     useTripStore.setState({
       savedTrips: [...store.savedTrips, savedTrip],
     });
+    import("@/lib/sync").then(({ syncSavedTrip }) => syncSavedTrip(savedTrip)).catch(() => {});
     setIsSaved(true);
     setSaveToast("Trip saved!");
     setTimeout(() => setSaveToast(null), 3000);

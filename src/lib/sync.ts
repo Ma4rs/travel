@@ -128,7 +128,7 @@ export async function syncSavedTrip(trip: Trip): Promise<void> {
 }
 
 function tripKey(t: Trip): string {
-  return `${t.title}|${t.origin.name}|${t.destination.name}|${t.createdAt.slice(0, 16)}`;
+  return `${t.title}|${t.origin?.name ?? ""}|${t.destination?.name ?? ""}|${(t.createdAt ?? "").slice(0, 16)}`;
 }
 
 export async function mergeLocalTripsWithRemote(
