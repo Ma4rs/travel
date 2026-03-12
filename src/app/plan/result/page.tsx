@@ -351,19 +351,22 @@ export default function TripResultPage() {
                 {isSaved ? "✓ Saved" : "💾 Save"}
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   const params = new URLSearchParams();
                   params.set("from", trip.origin.name);
                   params.set("to", trip.destination.name);
                   if (trip.days > 1) params.set("days", String(trip.days));
                   const url = `${window.location.origin}/route?${params.toString()}`;
-                  if (navigator.share) {
-                    navigator.share({ title: trip.title, text: `${trip.origin.name} → ${trip.destination.name} (${trip.days} days)`, url }).catch(() => {});
-                  } else {
-                    navigator.clipboard.writeText(url).then(() => {
-                      setShareToast("Link copied!");
-                      setTimeout(() => setShareToast(null), 3000);
-                    }).catch(() => {});
+                  try {
+                    if (navigator.share) {
+                      await navigator.share({ title: trip.title, text: `${trip.origin.name} → ${trip.destination.name} (${trip.days} days)`, url });
+                    } else {
+                      await navigator.clipboard.writeText(url);
+                    }
+                    setShareToast("Link copied!");
+                    setTimeout(() => setShareToast(null), 3000);
+                  } catch {
+                    // User cancelled or clipboard failed
                   }
                 }}
                 className="flex-1 rounded-lg border border-border py-2 text-xs font-medium text-foreground transition-colors hover:bg-card-hover"

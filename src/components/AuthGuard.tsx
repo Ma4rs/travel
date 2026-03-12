@@ -24,15 +24,20 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   useEffect(() => {
     const supabase = createClient();
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-      AuthContext.user = user;
-      setLoading(false);
-
-      if (!user && !PUBLIC_PATHS.includes(pathname)) {
-        router.push("/login");
-      }
-    });
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => {
+        setUser(user);
+        AuthContext.user = user;
+        if (!user && !PUBLIC_PATHS.includes(pathname)) {
+          router.push("/login");
+        }
+      })
+      .catch(() => {
+        setUser(null);
+        AuthContext.user = null;
+        if (!PUBLIC_PATHS.includes(pathname)) router.push("/login");
+      })
+      .finally(() => setLoading(false));
 
     const {
       data: { subscription },

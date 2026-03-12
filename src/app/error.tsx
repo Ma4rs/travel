@@ -25,6 +25,7 @@ export default function Error({
         <div className="flex justify-center gap-3">
           <button
             onClick={reset}
+            aria-label="Try again"
             className="rounded-xl bg-primary px-6 py-3 font-medium text-white transition-colors hover:bg-primary-hover"
           >
             Try Again

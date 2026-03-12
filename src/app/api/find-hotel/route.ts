@@ -5,8 +5,11 @@ export async function POST(request: NextRequest) {
   try {
     const { lat, lng, regionName, limit } = await request.json();
 
-    if (typeof lat !== "number" || typeof lng !== "number") {
-      return NextResponse.json({ error: "lat and lng required" }, { status: 400 });
+    if (typeof lat !== "number" || typeof lng !== "number" || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return NextResponse.json({ error: "Valid lat and lng required" }, { status: 400 });
+    }
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return NextResponse.json({ error: "lat/lng out of range" }, { status: 400 });
     }
 
     const name = typeof regionName === "string" ? regionName : "Germany";

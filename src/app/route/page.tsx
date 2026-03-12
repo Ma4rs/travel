@@ -344,11 +344,13 @@ export default function RoutePage() {
     let cancelled = false;
 
     const coords = quests.map((q) => ({ lat: q.lat, lng: q.lng, id: q.id }));
-    fetchWeatherForLocations(coords).then((data) => {
-      if (!cancelled) {
-        setWeatherMap(data);
-      }
-    });
+    fetchWeatherForLocations(coords)
+      .then((data) => {
+        if (!cancelled) setWeatherMap(data);
+      })
+      .catch(() => {
+        if (!cancelled) setWeatherMap({});
+      });
 
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -419,15 +421,22 @@ export default function RoutePage() {
           return { day: day.day, hotel: null };
         }
       })
-    ).then((results) => {
-      if (cancelled) return;
-      const map: Record<number, Hotel> = {};
-      for (const r of results) {
-        if (r.hotel) map[r.day] = r.hotel;
-      }
-      setHotelMap(map);
-      setIsLoadingHotels(false);
-    });
+    )
+      .then((results) => {
+        if (cancelled) return;
+        const map: Record<number, Hotel> = {};
+        for (const r of results) {
+          if (r.hotel) map[r.day] = r.hotel;
+        }
+        setHotelMap(map);
+        setIsLoadingHotels(false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setHotelMap({});
+          setIsLoadingHotels(false);
+        }
+      });
 
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps

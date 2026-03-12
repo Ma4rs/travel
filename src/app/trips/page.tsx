@@ -43,15 +43,23 @@ export default function TripsPage() {
       const url = `${window.location.origin}/shared?id=${shareId}`;
 
       if (navigator.share) {
-        await navigator.share({
-          title: trip.title,
-          text: `Check out my trip: ${trip.origin.name} → ${trip.destination.name}`,
-          url,
-        }).catch(() => {});
-        setShareToast(trip.id);
+        try {
+          await navigator.share({
+            title: trip.title,
+            text: `Check out my trip: ${trip.origin.name} → ${trip.destination.name}`,
+            url,
+          });
+          setShareToast(trip.id);
+        } catch {
+          // User cancelled or share failed — don't show success
+        }
       } else {
-        await navigator.clipboard.writeText(url);
-        setShareToast(trip.id);
+        try {
+          await navigator.clipboard.writeText(url);
+          setShareToast(trip.id);
+        } catch {
+          // Clipboard failed
+        }
       }
       setTimeout(() => setShareToast(null), 3000);
     } catch {

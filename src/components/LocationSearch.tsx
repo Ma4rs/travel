@@ -25,6 +25,8 @@ export default function LocationSearch({
   const [searchError, setSearchError] = useState<string | null>(null);
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const debounceRef = useRef<NodeJS.Timeout>(undefined);
+  const abortRef = useRef<AbortController | null>(null);
+  const activeRequestRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,6 +49,7 @@ export default function LocationSearch({
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
     };
   }, []);
 
@@ -65,10 +68,17 @@ export default function LocationSearch({
 
     debounceRef.current = setTimeout(async () => {
       setIsLoading(true);
+      const requestId = activeRequestRef.current + 1;
+      activeRequestRef.current = requestId;
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
       try {
         const res = await fetch(
-          `/api/geocode?q=${encodeURIComponent(val)}`
+          `/api/geocode?q=${encodeURIComponent(val)}`,
+          { signal: controller.signal }
         );
+        if (requestId !== activeRequestRef.current) return;
         if (!res.ok) {
           setResults([]);
           setIsOpen(false);
@@ -76,6 +86,7 @@ export default function LocationSearch({
           return;
         }
         const data = await res.json();
+        if (requestId !== activeRequestRef.current) return;
         if (!Array.isArray(data)) {
           setResults([]);
           setIsOpen(false);
@@ -90,12 +101,16 @@ export default function LocationSearch({
           setIsOpen(false);
           setSearchError("No locations found. Try a different search.");
         }
-      } catch {
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (requestId !== activeRequestRef.current) return;
         setResults([]);
         setIsOpen(false);
         setSearchError("Search failed. Check your connection.");
       } finally {
-        setIsLoading(false);
+        if (requestId === activeRequestRef.current) {
+          setIsLoading(false);
+        }
       }
     }, 400);
   }

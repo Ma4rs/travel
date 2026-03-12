@@ -21,20 +21,29 @@ function SharedTripContent() {
       return;
     }
 
-    fetch(`/api/share-trip?id=${encodeURIComponent(id)}`)
+    const ac = new AbortController();
+    fetch(`/api/share-trip?id=${encodeURIComponent(id)}`, { signal: ac.signal })
       .then(async (res) => {
         if (!res.ok) throw new Error("Trip not found");
         const data = await res.json();
+        if (ac.signal.aborted) return;
         setTrip(data.trip);
       })
-      .catch(() => setError("This trip doesn't exist or has been removed."))
-      .finally(() => setLoading(false));
+      .catch((err: Error) => {
+        if (err.name === "AbortError") return;
+        setError("This trip doesn't exist or has been removed.");
+      })
+      .finally(() => {
+        if (!ac.signal.aborted) setLoading(false);
+      });
+
+    return () => ac.abort();
   }, [searchParams]);
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary/30 border-t-primary" />
+      <div className="flex min-h-screen items-center justify-center" aria-busy="true" aria-live="polite">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary/30 border-t-primary" aria-hidden="true" />
       </div>
     );
   }

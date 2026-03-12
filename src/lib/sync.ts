@@ -116,15 +116,12 @@ export async function fetchSavedTrips(): Promise<Trip[]> {
 }
 
 export async function syncSavedTrip(trip: Trip): Promise<void> {
-  try {
-    await fetch("/api/trips", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: trip.title, trip }),
-    });
-  } catch {
-    // Offline — will sync on next load
-  }
+  const res = await fetch("/api/trips", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title: trip.title, trip }),
+  });
+  if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
 }
 
 function tripKey(t: Trip): string {
@@ -140,7 +137,11 @@ export async function mergeLocalTripsWithRemote(
 
   const localOnly = localTrips.filter((t) => !remoteKeys.has(tripKey(t)));
   for (const trip of localOnly) {
-    await syncSavedTrip(trip);
+    try {
+      await syncSavedTrip(trip);
+    } catch {
+      // Offline or server error — will retry on next sync
+    }
   }
 
   const localKeys = new Set(localTrips.map(tripKey));

@@ -27,8 +27,22 @@ export default function MapView({
   selectedQuestIds,
   onQuestClick,
 }: MapViewProps) {
+  const getIsDarkTheme = () =>
+    document.documentElement.classList.contains("dark") ||
+    (!document.documentElement.classList.contains("light") &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const getTileUrl = (isDark: boolean) =>
+    isDark
+      ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+      : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+  const tileLayerOptions = {
+    attribution: "&copy; OpenStreetMap &copy; CARTO",
+    maxZoom: 19,
+  };
+
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const routeLayerRef = useRef<L.Polyline | null>(null);
   const originalRouteLayerRef = useRef<L.Polyline | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
@@ -43,23 +57,54 @@ export default function MapView({
       initialZoom.current
     );
 
-    const isDark = document.documentElement.classList.contains("dark") ||
-      (!document.documentElement.classList.contains("light") &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches);
-    const tileUrl = isDark
-      ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-      : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
-
-    L.tileLayer(tileUrl, {
-      attribution: "&copy; OpenStreetMap &copy; CARTO",
-      maxZoom: 19,
-    }).addTo(mapRef.current);
+    tileLayerRef.current = L.tileLayer(
+      getTileUrl(getIsDarkTheme()),
+      tileLayerOptions
+    ).addTo(mapRef.current);
 
     markersRef.current = L.layerGroup().addTo(mapRef.current);
 
     return () => {
       mapRef.current?.remove();
       mapRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const applyTheme = () => {
+      if (!mapRef.current) return;
+      const nextUrl = getTileUrl(getIsDarkTheme());
+      const currentUrl = (tileLayerRef.current as L.TileLayer & { _url?: string } | null)?._url;
+      if (currentUrl === nextUrl) return;
+
+      if (tileLayerRef.current) {
+        mapRef.current.removeLayer(tileLayerRef.current);
+      }
+      tileLayerRef.current = L.tileLayer(nextUrl, tileLayerOptions).addTo(mapRef.current);
+    };
+
+    applyTheme();
+
+    const observer = new MutationObserver(applyTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const onMediaChange = () => {
+      const hasExplicitThemeClass =
+        document.documentElement.classList.contains("dark") ||
+        document.documentElement.classList.contains("light");
+      if (!hasExplicitThemeClass) applyTheme();
+    };
+    media.addEventListener("change", onMediaChange);
+
+    return () => {
+      observer.disconnect();
+      media.removeEventListener("change", onMediaChange);
     };
   }, []);
 

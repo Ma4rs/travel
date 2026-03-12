@@ -32,9 +32,9 @@ export default function UserMenu() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setEmail(user?.email ?? null);
-    });
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => setEmail(user?.email ?? null))
+      .catch(() => setEmail(null));
   }, []);
 
   useEffect(() => {

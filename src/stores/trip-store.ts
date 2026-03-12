@@ -179,7 +179,7 @@ export const useTripStore = create<TripState>()(
             hasSynced: true,
           }));
         } catch {
-          set({ hasSynced: true });
+          // Sync failed — keep hasSynced false so UI can retry
         }
       },
       reset: () =>
