@@ -19,16 +19,16 @@ export default function TripResultPage() {
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const [selectedHotel, setSelectedHotel] = useState<{ hotel: Hotel; dayNum: number } | null>(null);
   const dragDataRef = useRef<{ questId: string; fromDay: number } | null>(null);
 
   function handleSaveTrip() {
-    if (!trip) return;
+    if (!trip || isSaved) return;
     const allQuests = trip.itinerary.flatMap((d) => d.quests);
     const store = useTripStore.getState();
-    const newId = crypto.randomUUID();
     const savedTrip = {
-      id: newId,
+      id: crypto.randomUUID(),
       title: trip.title,
       origin: trip.origin,
       destination: trip.destination,
@@ -43,6 +43,7 @@ export default function TripResultPage() {
     useTripStore.setState({
       savedTrips: [...store.savedTrips, savedTrip],
     });
+    setIsSaved(true);
     setSaveToast("Trip saved!");
     setTimeout(() => setSaveToast(null), 3000);
   }
@@ -331,8 +332,14 @@ export default function TripResultPage() {
               <p className="mt-2 text-xs text-muted text-center">Round trip · {trip.totalDistance} km total</p>
             )}
             <div className="mt-3 flex gap-2">
-              <button onClick={handleSaveTrip} className="flex-1 rounded-lg border border-border py-2 text-xs font-medium text-foreground transition-colors hover:bg-card-hover">
-                💾 Save
+              <button
+                onClick={handleSaveTrip}
+                disabled={isSaved}
+                className={`flex-1 rounded-lg border py-2 text-xs font-medium transition-colors ${
+                  isSaved ? "border-secondary/30 text-secondary" : "border-border text-foreground hover:bg-card-hover"
+                }`}
+              >
+                {isSaved ? "✓ Saved" : "💾 Save"}
               </button>
               <button
                 onClick={() => {

@@ -3,11 +3,11 @@ const CACHE_VERSION = "2";
 const CACHE_NAME = `travelguide-v${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
-  `/?v=${CACHE_VERSION}`,
-  `/explore?v=${CACHE_VERSION}`,
-  `/album?v=${CACHE_VERSION}`,
-  `/plan?v=${CACHE_VERSION}`,
-  `/route?v=${CACHE_VERSION}`,
+  "/",
+  "/explore",
+  "/album",
+  "/plan",
+  "/route",
   "/offline.html",
 ];
 

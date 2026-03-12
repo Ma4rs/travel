@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
@@ -72,9 +71,6 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-6">
       <div className="w-full max-w-sm">
-        <Link href="/" className="mb-4 flex items-center justify-center gap-2 text-sm text-muted hover:text-foreground transition-colors" aria-label="Back to home">
-          ← Back to home
-        </Link>
         <div className="mb-8 text-center">
           <h1 className="mb-2 text-3xl font-bold">
             Travel

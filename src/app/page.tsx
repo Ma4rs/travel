@@ -3,7 +3,7 @@ import UserMenu from "@/components/UserMenu";
 
 const features = [
   {
-    icon: "🗺️",
+    icon: "✨",
     title: "AI-Powered Quests",
     description:
       "Our AI finds hidden gems, scenic detours, and local favorites along any route. Real-time weather info on every quest.",
