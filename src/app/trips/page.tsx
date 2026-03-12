@@ -276,6 +276,8 @@ export default function TripsPage() {
                             ? "Link copied!"
                             : shareToast === "error-" + trip.id
                             ? "Share failed"
+                            : shareToast === "error-" + trip.id
+                            ? "Share failed"
                             : "Share"}
                         </button>
                         <button
