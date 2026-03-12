@@ -136,14 +136,14 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {!isSignUp && !resetSent && (
+          {!isSignUp && (
             <button
               type="button"
               onClick={handleForgotPassword}
               disabled={loading}
               className="text-xs text-primary hover:underline disabled:opacity-50"
             >
-              Forgot password?
+              {resetSent ? "Resend reset email" : "Forgot password?"}
             </button>
           )}
 

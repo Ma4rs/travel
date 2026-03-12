@@ -373,11 +373,17 @@ export default function RoutePage() {
     const url = `${window.location.origin}/route?${params.toString()}`;
 
     if (navigator.share) {
-      navigator.share({ title: "TravelGuide Route", text: `Check out this route: ${origin.name} → ${destination.name}`, url }).catch(() => {});
+      navigator.share({ title: "TravelGuide Route", text: `Check out this route: ${origin.name} → ${destination.name}`, url }).catch(() => {
+        setShareToast("Share cancelled");
+        setTimeout(() => setShareToast(null), 2000);
+      });
     } else {
       navigator.clipboard.writeText(url).then(() => {
         setShareToast("Link copied!");
         setTimeout(() => setShareToast(null), 3000);
+      }).catch(() => {
+        setShareToast("Copy failed");
+        setTimeout(() => setShareToast(null), 2000);
       });
     }
   }

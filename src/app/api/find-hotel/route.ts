@@ -16,6 +16,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ hotels });
   } catch (error) {
     console.error("Hotel search failed:", error);
-    return NextResponse.json({ hotels: [] });
+    return NextResponse.json({ hotels: [], error: "Hotel search failed" }, { status: 500 });
   }
 }

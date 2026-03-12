@@ -276,6 +276,9 @@ export default function PlanPage() {
                   "Plan My Trip"
                 )}
               </button>
+              {!startPoint && (
+                <p className="mt-1 text-center text-xs text-muted">Select a start location above</p>
+              )}
             </div>
           </div>
 
