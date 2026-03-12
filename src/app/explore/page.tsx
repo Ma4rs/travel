@@ -62,6 +62,7 @@ export default function ExplorePage() {
         <div className="mx-auto flex max-w-3xl items-center gap-4">
           <Link
             href="/"
+            aria-label="Back to home"
             className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted transition-colors hover:text-foreground"
           >
             ←
@@ -83,6 +84,15 @@ export default function ExplorePage() {
 
       {/* Content */}
       <div className="mx-auto max-w-3xl px-6 py-8">
+        {/* Progress summary */}
+        <p className="mb-6 text-center text-sm text-muted">
+          <span className="font-medium text-foreground">{overall.completed}</span> of{" "}
+          <span className="font-medium text-foreground">{overall.total}</span> quests completed
+          {" · "}
+          <span className="font-medium text-foreground">{overall.percentage}%</span> complete
+          {" across "}
+          <span className="font-medium text-foreground">{REGIONS.length}</span> states
+        </p>
         {/* Near Me section */}
         <div className="mb-6">
           <button

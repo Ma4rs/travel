@@ -1,0 +1,86 @@
+diff --git a/src/app/album/page.tsx b/src/app/album/page.tsx
+index 3fbfc0a..075bea2 100644
+--- a/src/app/album/page.tsx
++++ b/src/app/album/page.tsx
+@@ -78,12 +78,20 @@ export default function AlbumPage() {
+             <p className="mb-6 text-sm text-muted">
+               Complete quests by uploading photos to build your travel album.
+             </p>
+-            <Link
+-              href="/explore"
+-              className="inline-flex rounded-xl bg-primary px-6 py-3 font-medium text-white transition-colors hover:bg-primary-hover"
+-            >
+-              Start Exploring
+-            </Link>
++            <div className="flex flex-wrap items-center justify-center gap-3">
++              <Link
++                href="/explore"
++                className="inline-flex rounded-xl bg-primary px-6 py-3 font-medium text-white transition-colors hover:bg-primary-hover"
++              >
++                Start Exploring
++              </Link>
++              <Link
++                href="/plan"
++                className="inline-flex rounded-xl border border-border px-6 py-3 font-medium transition-colors hover:bg-card"
++              >
++                Plan a Trip
++              </Link>
++            </div>
+           </div>
+         ) : (
+           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+@@ -158,6 +166,7 @@ function AlbumCard({
+           src={photoUrl}
+           alt={title}
+           fill
++          loading="lazy"
+           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+           className="object-cover transition-transform duration-300 group-hover:scale-105"
+           onError={() => setImgError(true)}
+diff --git a/src/app/plan/page.tsx b/src/app/plan/page.tsx
+index ae44bc5..123b96b 100644
+--- a/src/app/plan/page.tsx
++++ b/src/app/plan/page.tsx
+@@ -244,6 +244,9 @@ export default function PlanPage() {
+                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">Ôé¼</span>
+                 </div>
+               </div>
++              {minBudget >= maxBudget - 50 && (
++                <p className="mt-1.5 text-xs text-amber-500">Try a wider budget range for more results</p>
++              )}
+             </div>
+ 
+             <div>
+diff --git a/src/app/route/page.tsx b/src/app/route/page.tsx
+index 92e1e10..386bfc5 100644
+--- a/src/app/route/page.tsx
++++ b/src/app/route/page.tsx
+@@ -434,13 +434,22 @@ export default function RoutePage() {
+   }, [itinerary?.length, tripDays, recalcRoute]);
+ 
+   // Sort quests: selected first (in route order if recalculated), then unselected
+-  const displayGeometry = recalcRoute ? recalcRoute.geometry : routeGeometry;
+-  const selectedSorted = sortQuestsByRoute(
+-    quests.filter((q) => selectedQuestIds.has(q.id)),
+-    displayGeometry
++  const displayGeometry = useMemo(
++    () => (recalcRoute ? recalcRoute.geometry : routeGeometry),
++    [recalcRoute, routeGeometry]
++  );
++  const selectedSorted = useMemo(
++    () => sortQuestsByRoute(quests.filter((q) => selectedQuestIds.has(q.id)), displayGeometry),
++    [quests, selectedQuestIds, displayGeometry]
++  );
++  const unselected = useMemo(
++    () => quests.filter((q) => !selectedQuestIds.has(q.id)),
++    [quests, selectedQuestIds]
++  );
++  const displayQuests = useMemo(
++    () => [...selectedSorted, ...unselected],
++    [selectedSorted, unselected]
+   );
+-  const unselected = quests.filter((q) => !selectedQuestIds.has(q.id));
+-  const displayQuests = [...selectedSorted, ...unselected];
+ 
+   const selectedCount = selectedSorted.length;
+ 

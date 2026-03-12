@@ -78,12 +78,20 @@ export default function AlbumPage() {
             <p className="mb-6 text-sm text-muted">
               Complete quests by uploading photos to build your travel album.
             </p>
-            <Link
-              href="/explore"
-              className="inline-flex rounded-xl bg-primary px-6 py-3 font-medium text-white transition-colors hover:bg-primary-hover"
-            >
-              Start Exploring
-            </Link>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/explore"
+                className="inline-flex rounded-xl bg-primary px-6 py-3 font-medium text-white transition-colors hover:bg-primary-hover"
+              >
+                Start Exploring
+              </Link>
+              <Link
+                href="/plan"
+                className="inline-flex rounded-xl border border-border px-6 py-3 font-medium transition-colors hover:bg-card"
+              >
+                Plan a Trip
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -158,6 +166,7 @@ function AlbumCard({
           src={photoUrl}
           alt={title}
           fill
+          loading="lazy"
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           className="object-cover transition-transform duration-300 group-hover:scale-105"
           onError={() => setImgError(true)}

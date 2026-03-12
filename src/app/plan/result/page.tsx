@@ -8,6 +8,7 @@ import { useTripStore } from "@/stores/trip-store";
 import type { Quest, ItineraryDay, Hotel } from "@/types";
 import { QUEST_CATEGORIES } from "@/types";
 import { formatDurationMinutes, buildGoogleMapsUrl } from "@/lib/utils";
+import { syncSavedTrip } from "@/lib/sync";
 
 export default function TripResultPage() {
   const { plannedTrip: trip, updatePlannedItinerary } = useTripStore();
@@ -51,7 +52,7 @@ export default function TripResultPage() {
     useTripStore.setState({
       savedTrips: [...store.savedTrips, savedTrip],
     });
-    import("@/lib/sync").then(({ syncSavedTrip }) => syncSavedTrip(savedTrip)).catch(() => {});
+    syncSavedTrip(savedTrip).catch(() => {});
     setIsSaved(true);
     setSaveToast("Trip saved!");
     setTimeout(() => setSaveToast(null), 3000);
