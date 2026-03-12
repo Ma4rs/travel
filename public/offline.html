@@ -47,7 +47,7 @@
       TravelGuide needs an internet connection to search for quests, plan trips, and load maps.
       Check your connection and try again.
     </p>
-    <button onclick="window.location.reload()">Try Again</button>
+    <button onclick="if(navigator.onLine){window.location.reload()}else{this.textContent='Still offline...';setTimeout(()=>{this.textContent='Try Again'},2000)}">Try Again</button>
   </div>
 </body>
 </html>

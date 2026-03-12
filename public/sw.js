@@ -1,5 +1,5 @@
 // Bump this version string on every deploy to invalidate old caches
-const CACHE_VERSION = "2";
+const CACHE_VERSION = "3";
 const CACHE_NAME = `travelguide-v${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
@@ -13,7 +13,11 @@ const PRECACHE_URLS = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.allSettled(
+        PRECACHE_URLS.map((url) => cache.add(url).catch(() => {}))
+      )
+    )
   );
   self.skipWaiting();
 });
@@ -43,20 +47,19 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Supabase storage photos: cache first, then network
+  // Supabase storage photos: stale-while-revalidate
   if (url.hostname.includes("supabase.co") && url.pathname.includes("/storage/")) {
     event.respondWith(
-      caches.match(request).then(
-        (cached) =>
-          cached ||
-          fetch(request).then((response) => {
-            if (response.ok) {
-              const clone = response.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-            }
-            return response;
-          })
-      )
+      caches.match(request).then((cached) => {
+        const fetchPromise = fetch(request).then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        });
+        return cached || fetchPromise;
+      })
     );
     return;
   }
