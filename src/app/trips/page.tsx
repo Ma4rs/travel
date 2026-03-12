@@ -133,7 +133,7 @@ export default function TripsPage() {
                     {trip.quests.length} {trip.quests.length === 1 ? "quest" : "quests"}
                   </span>
                   {trip.totalDistance && (
-                    <span>{Math.round(trip.totalDistance / 1000)} km</span>
+                    <span>{trip.totalDistance > 10000 ? Math.round(trip.totalDistance / 1000) : Math.round(trip.totalDistance)} km</span>
                   )}
                   {trip.days && trip.days > 1 && (
                     <span>{trip.days} days</span>

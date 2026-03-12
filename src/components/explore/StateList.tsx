@@ -215,7 +215,7 @@ function QuestRow({
   onComplete: () => void;
   onClick: () => void;
 }) {
-  const cat = QUEST_CATEGORIES[quest.category];
+  const cat = QUEST_CATEGORIES[quest.category] ?? QUEST_CATEGORIES.hidden_gem;
   const [imgError, setImgError] = useState(false);
 
   return (

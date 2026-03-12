@@ -167,13 +167,17 @@ export const useTripStore = create<TripState>()(
         });
       },
       syncWithCloud: async () => {
-        const state = get();
         try {
+          const currentState = get();
           const [mergedQuests, mergedTrips] = await Promise.all([
-            mergeLocalWithRemote(state.completedQuests),
-            mergeLocalTripsWithRemote(state.savedTrips),
+            mergeLocalWithRemote(currentState.completedQuests),
+            mergeLocalTripsWithRemote(currentState.savedTrips),
           ]);
-          set({ completedQuests: mergedQuests, savedTrips: mergedTrips, hasSynced: true });
+          set((prev) => ({
+            completedQuests: { ...prev.completedQuests, ...mergedQuests },
+            savedTrips: mergedTrips,
+            hasSynced: true,
+          }));
         } catch {
           set({ hasSynced: true });
         }

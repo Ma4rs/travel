@@ -127,31 +127,24 @@ export async function syncSavedTrip(trip: Trip): Promise<void> {
   }
 }
 
+function tripKey(t: Trip): string {
+  return `${t.title}|${t.origin.name}|${t.destination.name}|${t.createdAt.slice(0, 16)}`;
+}
+
 export async function mergeLocalTripsWithRemote(
   localTrips: Trip[]
 ): Promise<Trip[]> {
   const remoteTrips = await fetchSavedTrips();
 
-  const remoteIds = new Set(remoteTrips.map((t) => t.id));
-  const localIds = new Set(localTrips.map((t) => t.id));
+  const remoteKeys = new Set(remoteTrips.map(tripKey));
 
-  // Push local-only trips to remote
-  const localOnly = localTrips.filter((t) => !remoteIds.has(t.id));
+  const localOnly = localTrips.filter((t) => !remoteKeys.has(tripKey(t)));
   for (const trip of localOnly) {
     await syncSavedTrip(trip);
   }
 
-  // Merge: keep all remote + local-only
-  const merged = [
-    ...remoteTrips,
-    ...localOnly.map((t) => ({ ...t })),
-  ];
+  const localKeys = new Set(localTrips.map(tripKey));
+  const remoteOnly = remoteTrips.filter((t) => !localKeys.has(tripKey(t)));
 
-  // Also keep any local trips not in remote (for offline resilience)
-  const remoteOnly = remoteTrips.filter((t) => !localIds.has(t.id));
-  if (remoteOnly.length > 0) {
-    return [...localTrips, ...remoteOnly];
-  }
-
-  return merged;
+  return [...localTrips, ...remoteOnly];
 }

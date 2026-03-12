@@ -32,7 +32,7 @@ function findClosestGeometryIndex(
   let minDist = Infinity;
   let minIdx = 0;
   for (let i = 0; i < geometry.length; i++) {
-    const d = (geometry[i][0] - lat) ** 2 + (geometry[i][1] - lng) ** 2;
+    const d = haversineKm(lat, lng, geometry[i][0], geometry[i][1]);
     if (d < minDist) { minDist = d; minIdx = i; }
   }
   return minIdx;
