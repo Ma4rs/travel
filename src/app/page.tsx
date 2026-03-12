@@ -1,36 +1,73 @@
+"use client";
+
 import Link from "next/link";
 import UserMenu from "@/components/UserMenu";
+import { useState, useEffect } from "react";
 
 const features = [
   {
     icon: "✨",
     title: "AI-Powered Quests",
     description:
-      "Our AI finds hidden gems, scenic detours, and local favorites along any route. Real-time weather info on every quest.",
+      "Finds hidden gems, scenic detours, and local favorites along your route. Real-time weather icons show conditions at each stop.",
   },
   {
     icon: "🏨",
     title: "Full Trip Planner",
     description:
-      "Plan multi-day trips with hotel suggestions, cost breakdowns, and day-by-day itineraries. Car, train, or electric — your choice.",
+      "Plan multi-day trips with hotels, cost breakdowns, and drag-and-drop itinerary editing. Car, train, or electric transport.",
   },
   {
-    icon: "🎮",
-    title: "Gamified Exploration",
+    icon: "📍",
+    title: "GPS Near Me",
     description:
-      "Earn XP for every quest, track progress across 16 German states, and build a personal photo album of your adventures.",
+      "Tap Near Me on the Explore page to instantly see quests within 50km of where you are right now.",
   },
   {
-    icon: "💾",
+    icon: "🔗",
     title: "Save & Share",
     description:
-      "Save your favorite routes, share them with friends via link, and export trips as JSON. All your trips in one place.",
+      "Share trips publicly via link, save to your account, and sync across all your devices.",
   },
 ];
+
+function WhatsNewBanner() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const dismissed = localStorage.getItem("tg-banner-dismissed");
+      if (!dismissed) setVisible(true);
+    }
+  }, []);
+
+  const dismiss = () => {
+    localStorage.setItem("tg-banner-dismissed", "1");
+    setVisible(false);
+  };
+
+  if (!visible) return null;
+
+  return (
+    <div className="bg-primary/10 text-primary text-xs text-center px-4 py-2 flex items-center justify-center gap-3">
+      <span>New: GPS Near Me · Hotel Selection · Public Trip Sharing</span>
+      <button
+        onClick={dismiss}
+        className="ml-auto shrink-0 hover:opacity-70 transition-opacity"
+        aria-label="Dismiss banner"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
 
 export default function Home() {
   return (
     <main className="min-h-screen">
+      {/* What's New Banner */}
+      <WhatsNewBanner />
+
       {/* Header */}
       <header className="flex items-center justify-end px-6 py-4">
         <UserMenu />
@@ -51,8 +88,8 @@ export default function Home() {
             </span>
           </h1>
           <p className="mx-auto mb-12 max-w-2xl text-lg text-muted">
-            Discover hidden gems, scenic detours, and unforgettable stops along
-            any route. AI-powered, gamified, and completely free.
+            Discover hidden gems, plan multi-day road trips with hotels, find
+            quests near you, and share your adventures.
           </p>
 
           {/* Mode Cards */}
