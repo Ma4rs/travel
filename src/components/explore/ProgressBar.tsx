@@ -20,7 +20,10 @@ export default function ProgressBar({
   const color = getProgressColor(percentage);
 
   useEffect(() => {
-    if (!animated) return;
+    if (!animated) {
+      setWidth(percentage);
+      return;
+    }
     const timer = setTimeout(() => setWidth(percentage), 100);
     return () => clearTimeout(timer);
   }, [percentage, animated]);

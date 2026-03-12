@@ -27,6 +27,14 @@ export default function TripResultPage() {
     if (!trip || isSaved) return;
     const allQuests = trip.itinerary.flatMap((d) => d.quests);
     const store = useTripStore.getState();
+    const itinerary = trip.itinerary.map((d) => ({
+      day: d.day,
+      quests: d.quests,
+      overnightLocation: d.hotel ? { lat: d.hotel.lat, lng: d.hotel.lng, name: d.hotel.name } : undefined,
+      hotel: d.hotel,
+      distanceKm: d.distanceKm,
+      durationMinutes: d.durationMinutes,
+    }));
     const savedTrip = {
       id: crypto.randomUUID(),
       title: trip.title,
@@ -38,6 +46,7 @@ export default function TripResultPage() {
       totalDistance: trip.totalDistance,
       totalDuration: trip.totalDuration,
       days: trip.days,
+      itinerary,
       createdAt: new Date().toISOString(),
     };
     useTripStore.setState({
