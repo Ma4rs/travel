@@ -443,13 +443,22 @@ export default function RoutePage() {
   }, [itinerary?.length, tripDays, recalcRoute]);
 
   // Sort quests: selected first (in route order if recalculated), then unselected
-  const displayGeometry = recalcRoute ? recalcRoute.geometry : routeGeometry;
-  const selectedSorted = sortQuestsByRoute(
-    quests.filter((q) => selectedQuestIds.has(q.id)),
-    displayGeometry
+  const displayGeometry = useMemo(
+    () => (recalcRoute ? recalcRoute.geometry : routeGeometry),
+    [recalcRoute, routeGeometry]
   );
-  const unselected = quests.filter((q) => !selectedQuestIds.has(q.id));
-  const displayQuests = [...selectedSorted, ...unselected];
+  const selectedSorted = useMemo(
+    () => sortQuestsByRoute(quests.filter((q) => selectedQuestIds.has(q.id)), displayGeometry),
+    [quests, selectedQuestIds, displayGeometry]
+  );
+  const unselected = useMemo(
+    () => quests.filter((q) => !selectedQuestIds.has(q.id)),
+    [quests, selectedQuestIds]
+  );
+  const displayQuests = useMemo(
+    () => [...selectedSorted, ...unselected],
+    [selectedSorted, unselected]
+  );
 
   const selectedCount = selectedSorted.length;
 

@@ -244,6 +244,9 @@ export default function PlanPage() {
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">€</span>
                 </div>
               </div>
+              {minBudget >= maxBudget - 50 && (
+                <p className="mt-1.5 text-xs text-amber-500">Try a wider budget range for more results</p>
+              )}
             </div>
 
             <div>

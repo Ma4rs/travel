@@ -107,7 +107,8 @@ export const useTripStore = create<TripState>()(
         }),
       completeMainQuest: (questId, photoUrl) => {
         const state = get();
-        if (state.completedQuests[questId]) return;
+        const existing = state.completedQuests[questId];
+        if (existing && !(photoUrl && !existing.photoUrl)) return;
 
         const data: CompletedQuestData = {
           questId,

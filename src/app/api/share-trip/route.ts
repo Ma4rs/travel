@@ -41,10 +41,14 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase
       .from("saved_trips")
       .select("trip_data, title, created_at")
-      .filter("trip_data->>shareId", "eq", shareId)
+      .eq("trip_data->>shareId", shareId)
       .single();
 
-    if (error || !data) return NextResponse.json({ error: "Trip not found" }, { status: 404 });
+    if (error) {
+      console.error("Share trip GET error:", error);
+      return NextResponse.json({ error: "Trip not found" }, { status: 404 });
+    }
+    if (!data) return NextResponse.json({ error: "Trip not found" }, { status: 404 });
 
     return NextResponse.json({
       trip: {
@@ -53,7 +57,8 @@ export async function GET(request: NextRequest) {
         createdAt: data.created_at,
       },
     });
-  } catch {
+  } catch (err) {
+    console.error("Share trip GET failed:", err);
     return NextResponse.json({ error: "Failed to load trip" }, { status: 500 });
   }
 }
