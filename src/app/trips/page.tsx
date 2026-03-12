@@ -6,8 +6,6 @@ import { useRouter } from "next/navigation";
 import UserMenu from "@/components/UserMenu";
 import { useTripStore } from "@/stores/trip-store";
 
-type SortOption = "newest" | "oldest" | "longest" | "most-quests";
-
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -21,8 +19,8 @@ export default function TripsPage() {
   const router = useRouter();
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [shareToast, setShareToast] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<SortOption>("newest");
-  const [filter, setFilter] = useState("");
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [filterText, setFilterText] = useState("");
 
   function handleLoad(tripId: string) {
     loadTrip(tripId);
@@ -87,32 +85,16 @@ export default function TripsPage() {
   const totalXP = (quests: (typeof savedTrips)[0]["quests"]) =>
     quests.reduce((sum, q) => sum + q.xp, 0);
 
-  const filterLower = filter.toLowerCase();
+  const filterLower = filterText.toLowerCase();
   const filteredTrips = savedTrips.filter((trip) => {
     if (!filterLower) return true;
-    return (
-      trip.title.toLowerCase().includes(filterLower) ||
-      trip.origin.name.toLowerCase().includes(filterLower) ||
-      trip.destination.name.toLowerCase().includes(filterLower)
-    );
+    return trip.title.toLowerCase().includes(filterLower);
   });
 
   const sortedTrips = [...filteredTrips].sort((a, b) => {
-    switch (sortBy) {
-      case "newest":
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      case "oldest":
-        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-      case "longest": {
-        const distA = a.totalDistance ?? 0;
-        const distB = b.totalDistance ?? 0;
-        return distB - distA;
-      }
-      case "most-quests":
-        return b.quests.length - a.quests.length;
-      default:
-        return 0;
-    }
+    const tA = new Date(a.createdAt).getTime();
+    const tB = new Date(b.createdAt).getTime();
+    return sortOrder === "desc" ? tB - tA : tA - tB;
   });
 
   return (
@@ -169,14 +151,14 @@ export default function TripsPage() {
                 </span>
                 <input
                   type="text"
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                  placeholder="Search by title, origin or destination…"
+                  value={filterText}
+                  onChange={(e) => setFilterText(e.target.value)}
+                  placeholder="Filter by title…"
                   className="w-full rounded-xl border border-border bg-card py-2 pl-9 pr-4 text-sm outline-none placeholder:text-muted focus:border-primary focus:ring-1 focus:ring-primary/30"
                 />
-                {filter && (
+                {filterText && (
                   <button
-                    onClick={() => setFilter("")}
+                    onClick={() => setFilterText("")}
                     className="absolute inset-y-0 right-3 flex items-center text-muted hover:text-foreground"
                     aria-label="Clear search"
                   >
@@ -184,24 +166,36 @@ export default function TripsPage() {
                   </button>
                 )}
               </div>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
-              >
-                <option value="newest">Newest first</option>
-                <option value="oldest">Oldest first</option>
-                <option value="longest">Longest (km)</option>
-                <option value="most-quests">Most quests</option>
-              </select>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setSortOrder("desc")}
+                  className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                    sortOrder === "desc"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted hover:text-foreground"
+                  }`}
+                >
+                  Newest
+                </button>
+                <button
+                  onClick={() => setSortOrder("asc")}
+                  className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                    sortOrder === "asc"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted hover:text-foreground"
+                  }`}
+                >
+                  Oldest
+                </button>
+              </div>
             </div>
 
             {sortedTrips.length === 0 ? (
               <div className="py-12 text-center">
                 <div className="mb-3 text-4xl">🔍</div>
-                <p className="text-sm text-muted">No trips match &ldquo;{filter}&rdquo;</p>
+                <p className="text-sm text-muted">No trips match &ldquo;{filterText}&rdquo;</p>
                 <button
-                  onClick={() => setFilter("")}
+                  onClick={() => setFilterText("")}
                   className="mt-3 text-sm text-primary hover:underline"
                 >
                   Clear filter
@@ -254,8 +248,8 @@ export default function TripsPage() {
                             km
                           </span>
                         )}
-                        {trip.days && trip.days > 1 && !itineraryDays && (
-                          <span className="rounded-lg bg-muted/10 px-2.5 py-1">{trip.days} days</span>
+                        {trip.days && !itineraryDays && (
+                          <span className="rounded-lg bg-muted/10 px-2.5 py-1">{trip.days} {trip.days === 1 ? "day" : "days"}</span>
                         )}
                       </div>
 
