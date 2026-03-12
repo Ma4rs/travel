@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import DynamicMap from "@/components/map/DynamicMap";
 import type { Quest, Trip } from "@/types";
 import { QUEST_CATEGORIES } from "@/types";
 
-export default function SharedTripPage() {
+function SharedTripContent() {
   const searchParams = useSearchParams();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,6 +61,7 @@ export default function SharedTripPage() {
     ...q,
     detourMinutes: q.detourMinutes ?? 0,
   }));
+  const geometry: [number, number][] = trip.routeGeometry ?? [];
 
   return (
     <div className="min-h-screen">
@@ -83,7 +84,6 @@ export default function SharedTripPage() {
       </header>
 
       <div className="mx-auto max-w-4xl px-6 py-8">
-        {/* Stats */}
         <div className="mb-6 flex flex-wrap gap-3">
           <span className="rounded-full bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary">
             {trip.quests.length} quests
@@ -98,11 +98,10 @@ export default function SharedTripPage() {
           )}
         </div>
 
-        {/* Map */}
-        {trip.routeGeometry && trip.routeGeometry.length > 0 && (
+        {geometry.length > 0 && (
           <div className="mb-6 h-80 rounded-xl overflow-hidden">
             <DynamicMap
-              routeGeometry={trip.routeGeometry}
+              routeGeometry={geometry}
               quests={mapQuests}
               completedQuests={{}}
               onQuestClick={() => {}}
@@ -110,7 +109,6 @@ export default function SharedTripPage() {
           </div>
         )}
 
-        {/* Quest list */}
         <h2 className="mb-3 text-lg font-semibold">Quests on this trip</h2>
         <div className="grid gap-2 sm:grid-cols-2">
           {trip.quests.map((quest) => {
@@ -132,7 +130,6 @@ export default function SharedTripPage() {
           })}
         </div>
 
-        {/* CTA */}
         <div className="mt-8 rounded-2xl bg-gradient-to-r from-primary/10 to-secondary/10 p-6 text-center">
           <h3 className="mb-2 text-lg font-semibold">Want to plan your own trip?</h3>
           <p className="mb-4 text-sm text-muted">
@@ -147,5 +144,17 @@ export default function SharedTripPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SharedTripPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary/30 border-t-primary" />
+      </div>
+    }>
+      <SharedTripContent />
+    </Suspense>
   );
 }

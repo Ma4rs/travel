@@ -31,7 +31,6 @@ export default function TripResultPage() {
       day: d.day,
       quests: d.quests,
       overnightLocation: d.hotel ? { lat: d.hotel.lat, lng: d.hotel.lng, name: d.hotel.name } : undefined,
-      hotel: d.hotel,
       distanceKm: d.distanceKm,
       durationMinutes: d.durationMinutes,
     }));
