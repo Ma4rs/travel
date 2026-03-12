@@ -23,6 +23,7 @@ export default function LocationSearch({
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [highlightIdx, setHighlightIdx] = useState(-1);
   const debounceRef = useRef<NodeJS.Timeout>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -52,6 +53,7 @@ export default function LocationSearch({
   function handleChange(val: string) {
     setQuery(val);
     setSearchError(null);
+    setHighlightIdx(-1);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -83,6 +85,7 @@ export default function LocationSearch({
         setResults(data);
         if (data.length > 0) {
           setIsOpen(true);
+          setHighlightIdx(0);
         } else {
           setIsOpen(false);
           setSearchError("No locations found. Try a different search.");
@@ -101,7 +104,25 @@ export default function LocationSearch({
     setQuery(point.name);
     setIsOpen(false);
     setSearchError(null);
+    setHighlightIdx(-1);
     onSelect(point);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (!isOpen || results.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightIdx((prev) => (prev + 1) % results.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightIdx((prev) => (prev - 1 + results.length) % results.length);
+    } else if (e.key === "Enter" && highlightIdx >= 0) {
+      e.preventDefault();
+      handleSelect(results[highlightIdx]);
+    } else if (e.key === "Escape") {
+      setIsOpen(false);
+    }
   }
 
   return (
@@ -118,7 +139,11 @@ export default function LocationSearch({
           value={query}
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => results.length > 0 && setIsOpen(true)}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
+          role="combobox"
+          aria-expanded={isOpen}
+          aria-autocomplete="list"
           className="w-full rounded-xl border border-border bg-card py-3 pl-10 pr-4 text-foreground placeholder:text-muted/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         />
         {isLoading && (
@@ -133,12 +158,16 @@ export default function LocationSearch({
       )}
 
       {isOpen && results.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full rounded-xl border border-border bg-card shadow-xl">
+        <div className="absolute z-50 mt-1 w-full rounded-xl border border-border bg-card shadow-xl" role="listbox">
           {results.map((r, i) => (
             <button
-              key={i}
+              key={`${r.lat}-${r.lng}`}
               onClick={() => handleSelect(r)}
-              className="w-full px-4 py-2.5 text-left text-sm transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-card-hover"
+              role="option"
+              aria-selected={i === highlightIdx}
+              className={`w-full px-4 py-2.5 text-left text-sm transition-colors first:rounded-t-xl last:rounded-b-xl ${
+                i === highlightIdx ? "bg-primary/10 text-primary" : "hover:bg-card-hover"
+              }`}
             >
               {r.name}
             </button>
