@@ -30,23 +30,32 @@ export default function TripsPage() {
     setConfirmDelete(null);
   }
 
-  function handleShare(trip: (typeof savedTrips)[0]) {
-    const params = new URLSearchParams();
-    params.set("from", trip.origin.name);
-    params.set("to", trip.destination.name);
-    const url = `${window.location.origin}/route?${params.toString()}`;
-
-    if (navigator.share) {
-      navigator.share({
-        title: trip.title,
-        text: `Check out this route: ${trip.origin.name} → ${trip.destination.name}`,
-        url,
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(url).then(() => {
-        setShareToast(trip.id);
-        setTimeout(() => setShareToast(null), 3000);
+  async function handleShare(trip: (typeof savedTrips)[0]) {
+    setShareToast("sharing-" + trip.id);
+    try {
+      const res = await fetch("/api/share-trip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trip }),
       });
+      if (!res.ok) throw new Error();
+      const { shareId } = await res.json();
+      const url = `${window.location.origin}/shared?id=${shareId}`;
+
+      if (navigator.share) {
+        await navigator.share({
+          title: trip.title,
+          text: `Check out my trip: ${trip.origin.name} → ${trip.destination.name}`,
+          url,
+        }).catch(() => {});
+        setShareToast(trip.id);
+      } else {
+        await navigator.clipboard.writeText(url);
+        setShareToast(trip.id);
+      }
+      setTimeout(() => setShareToast(null), 3000);
+    } catch {
+      setShareToast(null);
     }
   }
 
@@ -154,7 +163,7 @@ export default function TripsPage() {
                     onClick={() => handleShare(trip)}
                     className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-card-hover"
                   >
-                    {shareToast === trip.id ? "Copied!" : "Share"}
+                    {shareToast === "sharing-" + trip.id ? "Sharing..." : shareToast === trip.id ? "Link copied!" : "Share"}
                   </button>
                   <button
                     onClick={() => handleExportJson(trip)}
