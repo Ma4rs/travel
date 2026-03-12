@@ -1,5 +1,5 @@
 import { createClient } from "./supabase";
-import type { CompletedQuestData } from "@/types";
+import type { CompletedQuestData, Trip } from "@/types";
 
 export async function fetchCompletedQuests(): Promise<
   Record<string, CompletedQuestData>
@@ -99,6 +99,58 @@ export async function mergeLocalWithRemote(
     await supabase
       .from("completed_quests")
       .upsert(rows, { onConflict: "user_id,quest_id" });
+  }
+
+  return merged;
+}
+
+export async function fetchSavedTrips(): Promise<Trip[]> {
+  try {
+    const res = await fetch("/api/trips");
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.trips) ? data.trips : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function syncSavedTrip(trip: Trip): Promise<void> {
+  try {
+    await fetch("/api/trips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: trip.title, trip }),
+    });
+  } catch {
+    // Offline — will sync on next load
+  }
+}
+
+export async function mergeLocalTripsWithRemote(
+  localTrips: Trip[]
+): Promise<Trip[]> {
+  const remoteTrips = await fetchSavedTrips();
+
+  const remoteIds = new Set(remoteTrips.map((t) => t.id));
+  const localIds = new Set(localTrips.map((t) => t.id));
+
+  // Push local-only trips to remote
+  const localOnly = localTrips.filter((t) => !remoteIds.has(t.id));
+  for (const trip of localOnly) {
+    await syncSavedTrip(trip);
+  }
+
+  // Merge: keep all remote + local-only
+  const merged = [
+    ...remoteTrips,
+    ...localOnly.map((t) => ({ ...t })),
+  ];
+
+  // Also keep any local trips not in remote (for offline resilience)
+  const remoteOnly = remoteTrips.filter((t) => !localIds.has(t.id));
+  if (remoteOnly.length > 0) {
+    return [...localTrips, ...remoteOnly];
   }
 
   return merged;

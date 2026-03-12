@@ -9,7 +9,7 @@ import type {
   PlannedTrip,
   ItineraryDay,
 } from "@/types";
-import { syncQuestCompletion, mergeLocalWithRemote } from "@/lib/sync";
+import { syncQuestCompletion, mergeLocalWithRemote, mergeLocalTripsWithRemote, syncSavedTrip } from "@/lib/sync";
 
 interface TripState {
   origin: RoutePoint | null;
@@ -146,6 +146,7 @@ export const useTripStore = create<TripState>()(
           createdAt: new Date().toISOString(),
         };
         set({ savedTrips: [...state.savedTrips, trip] });
+        syncSavedTrip(trip).catch(() => {});
         return id;
       },
       deleteTrip: (tripId: string) => {
@@ -168,8 +169,11 @@ export const useTripStore = create<TripState>()(
       syncWithCloud: async () => {
         const state = get();
         try {
-          const merged = await mergeLocalWithRemote(state.completedQuests);
-          set({ completedQuests: merged, hasSynced: true });
+          const [mergedQuests, mergedTrips] = await Promise.all([
+            mergeLocalWithRemote(state.completedQuests),
+            mergeLocalTripsWithRemote(state.savedTrips),
+          ]);
+          set({ completedQuests: mergedQuests, savedTrips: mergedTrips, hasSynced: true });
         } catch {
           set({ hasSynced: true });
         }
